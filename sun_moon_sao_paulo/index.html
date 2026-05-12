@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Lua — Anália Franco • São Paulo</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <canvas id="scene"></canvas>
+
+        <!-- Info card — top left -->
+        <div id="info-card">
+            <div class="loc-label">Anália Franco &bull; São Paulo</div>
+            <div id="info-date">1 de Janeiro de 2025</div>
+            <div id="info-phase">🌑&nbsp; Lua Nova</div>
+            <div id="info-illum">0% iluminada</div>
+        </div>
+
+        <!-- Scroll hint -->
+        <div id="scroll-hint">
+            <span class="arrow">↕</span>&nbsp; role para viajar no tempo lunar
+        </div>
+
+        <!-- Progress bar — bottom center -->
+        <div id="progress-wrap">
+            <div id="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+            <div id="progress-label">Dia 1 de 30 no ciclo lunar</div>
+        </div>
+
+        <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+        <script src="script.js"></script>
+    </body>
+</html>

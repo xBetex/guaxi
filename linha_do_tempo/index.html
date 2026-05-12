@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Guaxinim Tempo Real</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <canvas id="gameCanvas"></canvas>
+
+        <button id="ui-toggle">⚙️</button>
+
+        <div id="ui-panel">
+            <div class="time-display" id="time-display">12:00</div>
+
+            <div class="ui-group">
+                <label class="group-label">Location</label>
+                <div style="display: flex; gap: 8px; align-items: stretch">
+                    <input
+                        type="text"
+                        id="city-input"
+                        value="São Paulo"
+                        style="flex: 1; min-width: 0"
+                    />
+                    <button
+                        id="city-update-btn"
+                        class="city-btn"
+                        title="Buscar clima"
+                    >
+                        🔍
+                    </button>
+                </div>
+            </div>
+
+            <div class="ui-group">
+                <div class="toggle-row">
+                    <label>Manual Time</label>
+                    <label class="switch">
+                        <input type="checkbox" id="override-time" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <input
+                    type="range"
+                    id="time-slider"
+                    min="0"
+                    max="23.99"
+                    step="0.1"
+                    value="12"
+                    class="hidden"
+                />
+            </div>
+
+            <div class="ui-group">
+                <div class="toggle-row">
+                    <label>Manual Season</label>
+                    <label class="switch">
+                        <input type="checkbox" id="override-season" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <select id="season-select" class="hidden">
+                    <option value="spring">🌸 Spring</option>
+                    <option value="summer">☀️ Summer</option>
+                    <option value="autumn">🍂 Autumn</option>
+                    <option value="winter">❄️ Winter</option>
+                </select>
+            </div>
+
+            <div class="ui-group">
+                <div class="toggle-row">
+                    <label>Manual Weather</label>
+                    <label class="switch">
+                        <input type="checkbox" id="override-weather" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <select id="weather-select" class="hidden">
+                    <option value="clear">☀️ Clear</option>
+                    <option value="cloudy">☁️ Cloudy</option>
+                    <option value="rain">🌧️ Rain</option>
+                    <option value="storm">⛈️ Storm</option>
+                    <option value="snow">🌨️ Snow</option>
+                </select>
+            </div>
+
+            <div class="ui-group">
+                <label class="group-label">Global Assets</label>
+                <div style="margin-bottom: 16px">
+                    <label
+                        class="group-label"
+                        style="font-size: 10px; opacity: 0.6"
+                        >Raccoon Character</label
+                    >
+                    <input
+                        type="file"
+                        id="raccoon-image-input"
+                        accept="image/*"
+                    />
+                </div>
+                <div style="margin-bottom: 16px">
+                    <label
+                        class="group-label"
+                        style="
+                            font-size: 10px;
+                            opacity: 0.6;
+                            margin-bottom: 8px;
+                        "
+                        >Raccoon Scale
+                        <span style="font-size: 9px; opacity: 0.5"
+                            >(para OBS)</span
+                        ></label
+                    >
+                    <div class="toggle-row">
+                        <label style="min-width: 44px">Tamanho</label>
+                        <input
+                            type="range"
+                            id="raccoon-scale-input"
+                            min="0.1"
+                            max="4.0"
+                            step="0.05"
+                            value="1.0"
+                        />
+                        <span
+                            id="raccoon-scale-val"
+                            style="
+                                min-width: 40px;
+                                text-align: right;
+                                color: #a29bfe;
+                                font-size: 12px;
+                            "
+                            >1.00×</span
+                        >
+                    </div>
+                </div>
+                <div style="margin-bottom: 16px">
+                    <label
+                        class="group-label"
+                        style="font-size: 10px; opacity: 0.6"
+                        >Bonfire Image</label
+                    >
+                    <input
+                        type="file"
+                        id="bonfire-image-input"
+                        accept="image/*"
+                    />
+                </div>
+
+                <label class="group-label">Seasonal Trees</label>
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 4px;
+                        padding: 0 10px;
+                    "
+                >
+                    <span style="font-size: 9px; opacity: 0.5; width: 60px"
+                        >SEASON</span
+                    >
+                    <span
+                        style="
+                            font-size: 9px;
+                            opacity: 0.5;
+                            flex: 1.2;
+                            text-align: center;
+                        "
+                        >SMALL</span
+                    >
+                    <span
+                        style="
+                            font-size: 9px;
+                            opacity: 0.5;
+                            flex: 1.2;
+                            text-align: center;
+                        "
+                        >CENTER</span
+                    >
+                </div>
+
+                <div class="asset-grid">
+                    <span class="asset-label">Spring</span>
+                    <label
+                        class="file-btn"
+                        for="spring-small-input"
+                        id="spring-small-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="spring-small-input"
+                        class="tree-input"
+                        data-season="spring"
+                        data-type="small"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                    <label
+                        class="file-btn"
+                        for="spring-center-input"
+                        id="spring-center-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="spring-center-input"
+                        class="tree-input"
+                        data-season="spring"
+                        data-type="center"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                </div>
+
+                <div class="asset-grid">
+                    <span class="asset-label">Summer</span>
+                    <label
+                        class="file-btn"
+                        for="summer-small-input"
+                        id="summer-small-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="summer-small-input"
+                        class="tree-input"
+                        data-season="summer"
+                        data-type="small"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                    <label
+                        class="file-btn"
+                        for="summer-center-input"
+                        id="summer-center-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="summer-center-input"
+                        class="tree-input"
+                        data-season="summer"
+                        data-type="center"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                </div>
+
+                <div class="asset-grid">
+                    <span class="asset-label">Autumn</span>
+                    <label
+                        class="file-btn"
+                        for="autumn-small-input"
+                        id="autumn-small-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="autumn-small-input"
+                        class="tree-input"
+                        data-season="autumn"
+                        data-type="small"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                    <label
+                        class="file-btn"
+                        for="autumn-center-input"
+                        id="autumn-center-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="autumn-center-input"
+                        class="tree-input"
+                        data-season="autumn"
+                        data-type="center"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                </div>
+
+                <div class="asset-grid">
+                    <span class="asset-label">Winter</span>
+                    <label
+                        class="file-btn"
+                        for="winter-small-input"
+                        id="winter-small-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="winter-small-input"
+                        class="tree-input"
+                        data-season="winter"
+                        data-type="small"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                    <label
+                        class="file-btn"
+                        for="winter-center-input"
+                        id="winter-center-btn"
+                        >Upload</label
+                    >
+                    <input
+                        type="file"
+                        id="winter-center-input"
+                        class="tree-input"
+                        data-season="winter"
+                        data-type="center"
+                        accept="image/*"
+                        style="display: none"
+                    />
+                </div>
+            </div>
+
+            <div class="ui-group">
+                <label class="group-label">Positions</label>
+
+                <div
+                    style="
+                        background: rgba(255, 255, 255, 0.03);
+                        border-radius: 10px;
+                        padding: 10px;
+                        margin-bottom: 10px;
+                    "
+                >
+                    <div
+                        class="group-label"
+                        style="
+                            font-size: 10px;
+                            opacity: 0.6;
+                            margin-bottom: 6px;
+                        "
+                    >
+                        Left Tree
+                    </div>
+                    <div class="toggle-row">
+                        <label style="min-width: 28px">X</label>
+                        <input
+                            type="range"
+                            id="tree1-x"
+                            min="0"
+                            max="100"
+                            value="15"
+                        />
+                        <span
+                            id="tree1-x-val"
+                            style="
+                                min-width: 36px;
+                                text-align: right;
+                                color: #a29bfe;
+                                font-size: 12px;
+                            "
+                            >15%</span
+                        >
+                    </div>
+                    <div class="toggle-row">
+                        <label style="min-width: 28px">Y</label>
+                        <input
+                            type="range"
+                            id="tree1-y"
+                            min="-300"
+                            max="300"
+                            step="1"
+                            value="0"
+                        />
+                        <span
+                            id="tree1-y-val"
+                            style="
+                                min-width: 36px;
+                                text-align: right;
+                                color: #a29bfe;
+                                font-size: 12px;
+                            "
+                            >0px</span
+                        >
+                    </div>
+                </div>
+
+                <div
+                    style="
+                        background: rgba(255, 255, 255, 0.03);
+                        border-radius: 10px;
+                        padding: 10px;
+                        margin-bottom: 10px;
+                    "
+                >
+                    <div
+                        class="group-label"
+                        style="
+                            font-size: 10px;
+                            opacity: 0.6;
+                            margin-bottom: 6px;
+                        "
+                    >
+                        Right Tree
+                    </div>
+                    <div class="toggle-row">
+                        <label style="min-width: 28px">X</label>
+                        <input
+                            type="range"
+                            id="tree2-x"
+                            min="0"
+                            max="100"
+                            value="80"
+                        />
+                        <span
+                            id="tree2-x-val"
+                            style="
+                                min-width: 36px;
+                                text-align: right;
+                                color: #a29bfe;
+                                font-size: 12px;
+                            "
+                            >80%</span
+                        >
+                    </div>
+                    <div class="toggle-row">
+                        <label style="min-width: 28px">Y</label>
+                        <input
+                            type="range"
+                            id="tree2-y"
+                            min="-300"
+                            max="300"
+                            step="1"
+                            value="0"
+                        />
+                        <span
+                            id="tree2-y-val"
+                            style="
+                                min-width: 36px;
+                                text-align: right;
+                                color: #a29bfe;
+                                font-size: 12px;
+                            "
+                            >0px</span
+                        >
+                    </div>
+                </div>
+
+                <div
+                    style="
+                        background: rgba(255, 255, 255, 0.03);
+                        border-radius: 10px;
+                        padding: 10px;
+                        margin-bottom: 10px;
+                    "
+                >
+                    <div
+                        class="group-label"
+                        style="
+                            font-size: 10px;
+                            opacity: 0.6;
+                            margin-bottom: 6px;
+                        "
+                    >
+                        Bonfire
+                    </div>
+                    <div class="toggle-row">
+                        <label style="min-width: 28px">X</label>
+                        <input
+                            type="range"
+                            id="bonfire-x"
+                            min="0"
+                            max="100"
+                            value="65"
+                        />
+                        <span
+                            id="bonfire-x-val"
+                            style="
+                                min-width: 36px;
+                                text-align: right;
+                                color: #a29bfe;
+                                font-size: 12px;
+                            "
+                            >65%</span
+                        >
+                    </div>
+                    <div class="toggle-row">
+                        <label style="min-width: 28px">Y</label>
+                        <input
+                            type="range"
+                            id="bonfire-y"
+                            min="-200"
+                            max="200"
+                            step="1"
+                            value="0"
+                        />
+                        <span
+                            id="bonfire-y-val"
+                            style="
+                                min-width: 36px;
+                                text-align: right;
+                                color: #a29bfe;
+                                font-size: 12px;
+                            "
+                            >0px</span
+                        >
+                    </div>
+                </div>
+                <div style="margin-top: 12px">
+                    <label class="group-label">Center Tree Y Offset</label>
+                    <div class="toggle-row">
+                        <label style="margin: 0">Vertical Offset</label>
+                        <div
+                            style="display: flex; gap: 8px; align-items: center"
+                        >
+                            <input
+                                type="range"
+                                id="center-tree-y"
+                                min="0"
+                                max="500"
+                                step="1"
+                                value="160"
+                            />
+                            <div
+                                id="center-tree-y-val"
+                                style="
+                                    min-width: 52px;
+                                    text-align: right;
+                                    color: #fff;
+                                "
+                            >
+                                160px
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 12px">
+                    <label class="group-label">Sprite Sheet Bottom Nudge</label>
+                    <div class="toggle-row">
+                        <label style="margin: 0">Sheet Bottom Nudge</label>
+                        <div
+                            style="display: flex; gap: 8px; align-items: center"
+                        >
+                            <input
+                                type="range"
+                                id="sheet-bottom-nudge"
+                                min="-200"
+                                max="200"
+                                step="1"
+                                value="0"
+                            />
+                            <div
+                                id="sheet-bottom-nudge-val"
+                                style="
+                                    min-width: 52px;
+                                    text-align: right;
+                                    color: #fff;
+                                "
+                            >
+                                0px
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Single Save All button -->
+                <div style="margin-top: 18px; text-align: center">
+                    <button id="save-all-btn" class="save-all-btn">
+                        💾 Salvar Tudo
+                    </button>
+                </div>
+
+                <!-- keep old IDs so JS refs resolve (no-op since buttons removed) -->
+                <button id="save-center-tree" style="display: none"></button>
+                <button id="save-sheet-bottom" style="display: none"></button>
+            </div>
+        </div>
+
+        <!-- Weather Info Bar -->
+        <div id="weather-bar">
+            <div id="wb-city-row">
+                <span id="wb-city">São Paulo</span>
+            </div>
+            <div id="wb-data-row">
+                <div class="wb-item">
+                    <span class="wb-label">HORÁRIO</span>
+                    <span class="wb-value" id="wb-time">--:--</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">TEMPERATURA</span>
+                    <span class="wb-value" id="wb-temp">--°C</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">SENSAÇÃO</span>
+                    <span class="wb-value" id="wb-feels">--°C</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">UMIDADE</span>
+                    <span class="wb-value" id="wb-hum">--%</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">VENTO</span>
+                    <span class="wb-value" id="wb-wind">-- km/h</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">CONDIÇÃO</span>
+                    <span class="wb-value" id="wb-cond">--</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">NASCER DO SOL</span>
+                    <span class="wb-value" id="wb-sunrise">--:--</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">PÔR DO SOL</span>
+                    <span class="wb-value" id="wb-sunset">--:--</span>
+                </div>
+                <div class="wb-sep"></div>
+                <div class="wb-item">
+                    <span class="wb-label">FASE DA LUA</span>
+                    <span class="wb-value" id="wb-moon">🌑</span>
+                </div>
+            </div>
+        </div>
+
+        <script src="script.js"></script>
+    </body>
+</html>

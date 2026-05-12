@@ -35,14 +35,31 @@ let externalWeatherFetchedAt = 0;
 let lightningFlash = 0;
 let raccoon = { bounceOffset: 0, flip: false, frame: 0 };
 let centerTreeUsingSheetTop = false;
-let isFetchingWeather = false; // true while a network fetch is in-flight
-let _cityFetchDebounce = null;
-let externalLat = null;
-let externalLon = null;
-let externalHemisphere = null; // 'north' or 'south'
-let externalLocalDateParts = null; // { year, month, day, hour, minute }
-let externalTimezone = null;
+// persisted external info key
 const EXTERNAL_STORAGE_KEY = 'guaxinim_external';
+
+// Restore last-known external location/timezone/hemisphere from localStorage
+function loadExternalFromStorage() {
+  try {
+    const raw = localStorage.getItem(EXTERNAL_STORAGE_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    if (!obj) return;
+    if (obj.externalWeather !== undefined) externalWeather = obj.externalWeather;
+    if (obj.externalWeatherFetchedAt !== undefined)
+      externalWeatherFetchedAt = obj.externalWeatherFetchedAt;
+    if (obj.externalLat !== undefined) externalLat = obj.externalLat;
+    if (obj.externalLon !== undefined) externalLon = obj.externalLon;
+    if (obj.externalHemisphere !== undefined)
+      externalHemisphere = obj.externalHemisphere;
+    if (obj.externalLocalDateParts !== undefined)
+      externalLocalDateParts = obj.externalLocalDateParts;
+    if (obj.externalTimezone !== undefined) externalTimezone = obj.externalTimezone;
+    if (obj.currentCity) currentCity = obj.currentCity;
+  } catch (e) {}
+}
+
+loadExternalFromStorage();
 // raccoon free roaming
 let raccoonWanderTargetX = -1;
 let raccoonWanderTimer = 0;
@@ -116,13 +133,6 @@ if (overrideTime)
   overrideTime.addEventListener("change", (e) => {
     isAutoTime = !e.target.checked;
     timeSlider.classList.toggle("hidden", isAutoTime);
-    // When switching to automatic time, refresh location info so we can
-    // compute the city's local hour immediately.
-    if (isAutoTime) {
-      if (currentCity && currentCity.trim()) fetchWeatherForCity(currentCity.trim());
-      // update displayed time right away
-      updateTimeDisplay(getActiveTime());
-    }
   });
 if (timeSlider)
   timeSlider.addEventListener("input", (e) => {
@@ -382,19 +392,10 @@ treeInputs.forEach((input) => {
 });
 
 // City input — update state only, button triggers fetch
-if (cityInput) {
+if (cityInput)
   cityInput.addEventListener("input", (e) => {
     currentCity = e.target.value;
-    // if we're auto-following weather, debounce a fetch so typing doesn't spam the API
-    if (isAutoWeather) {
-      if (_cityFetchDebounce) clearTimeout(_cityFetchDebounce);
-      _cityFetchDebounce = setTimeout(() => {
-        const val = currentCity ? currentCity.trim() : "";
-        if (val) fetchWeatherForCity(val);
-      }, 700);
-    }
   });
-}
 
 const cityUpdateBtn = document.getElementById("city-update-btn");
 if (cityUpdateBtn)
@@ -623,7 +624,7 @@ const CLOUD = [
 
 // ─── IMAGES ──────────────────────────────────────────────────
 const raccoonImg = new Image();
-raccoonImg.src = "ässets/guaxinim_inteiro_transp.png";
+raccoonImg.src = "../ässets/guaxinim_inteiro_transp.png";
 
 const bonfireImg = new Image();
 let bonfireImgLoaded = false;
@@ -633,7 +634,7 @@ bonfireImg.onload = () => {
 bonfireImg.onerror = () => {
   bonfireImgLoaded = false;
 };
-bonfireImg.src = "ässets/bonfire.png";
+bonfireImg.src = "../ässets/bonfire.png";
 
 const treesSheet = new Image();
 let treesSheetLoaded = false;
@@ -664,7 +665,7 @@ treesSheet.onload = () => {
 treesSheet.onerror = () => {
   treesSheetLoaded = false;
 };
-treesSheet.src = "ässets/trees_sheet.png";
+treesSheet.src = "../ässets/trees_sheet.png";
 
 const treeImgs = {
   spring: { center: new Image(), centerIn: new Image(), small: new Image() },
@@ -675,22 +676,22 @@ const treeImgs = {
 
 function loadTreeImages() {
   // Center trees — "_out" variant (tree without raccoon)
-  treeImgs.spring.center.src = "ässets/spring_out.png";
-  treeImgs.summer.center.src = "ässets/summer_out.png";
-  treeImgs.autumn.center.src = "ässets/autum_out.png";
-  treeImgs.winter.center.src = "ässets/winter_out.png";
+  treeImgs.spring.center.src = "../ässets/spring_out.png";
+  treeImgs.summer.center.src = "../ässets/summer_out.png";
+  treeImgs.autumn.center.src = "../ässets/autum_out.png";
+  treeImgs.winter.center.src = "../ässets/winter_out.png";
 
   // Center trees — "_in" variant (raccoon baked inside)
-  treeImgs.spring.centerIn.src = "ässets/spring_in.png";
-  treeImgs.summer.centerIn.src = "ässets/summer_in.png";
-  treeImgs.autumn.centerIn.src = "ässets/autum_in.png";
-  treeImgs.winter.centerIn.src = "ässets/winter_in.png";
+  treeImgs.spring.centerIn.src = "../ässets/spring_in.png";
+  treeImgs.summer.centerIn.src = "../ässets/summer_in.png";
+  treeImgs.autumn.centerIn.src = "../ässets/autum_in.png";
+  treeImgs.winter.centerIn.src = "../ässets/winter_in.png";
 
   // Small side trees
-  treeImgs.spring.small.src = "ässets/spring_small.png";
-  treeImgs.summer.small.src = "ässets/summer_small.png";
-  treeImgs.autumn.small.src = "ässets/autum_small.png";
-  treeImgs.winter.small.src = "ässets/winter_small.png";
+  treeImgs.spring.small.src = "../ässets/spring_small.png";
+  treeImgs.summer.small.src = "../ässets/summer_small.png";
+  treeImgs.autumn.small.src = "../ässets/autum_small.png";
+  treeImgs.winter.small.src = "../ässets/winter_small.png";
 
   Object.entries(treeImgs).forEach(([season, seasonImgs]) => {
     Object.entries(seasonImgs).forEach(([type, img]) => {
@@ -1106,33 +1107,6 @@ function drawSnow() {
 // ─── TIME / SEASON / WEATHER ─────────────────────────────────
 function getActiveTime() {
   if (!isAutoTime) return manualTimeVal;
-  // If we have a timezone from the external weather, compute the current
-  // time in that timezone dynamically using Intl APIs so it advances.
-  try {
-    if (externalTimezone) {
-      const fmt = new Intl.DateTimeFormat("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: externalTimezone,
-      });
-      const parts = fmt.formatToParts(new Date());
-      let hh = 0,
-        mm = 0;
-      for (const p of parts) {
-        if (p.type === "hour") hh = parseInt(p.value, 10);
-        if (p.type === "minute") mm = parseInt(p.value, 10);
-      }
-      if (!isNaN(hh) && !isNaN(mm)) return hh + mm / 60;
-    }
-  } catch (e) {
-    /* fallthrough to other strategies */
-  }
-  // If timezone not available, but we have a local-time snapshot, use it
-  if (externalLocalDateParts) {
-    return externalLocalDateParts.hour + externalLocalDateParts.minute / 60;
-  }
-  // Final fallback: use local system time
   const now = new Date();
   return now.getHours() + now.getMinutes() / 60;
 }
@@ -1146,23 +1120,11 @@ function getTimeTheme(h) {
 
 function getActiveSeason(date) {
   if (!isAutoSeason) return manualSeasonVal;
-  const month = date.getMonth() + 1; // 1..12
-  // Northern hemisphere mapping (default)
-  const northSeason = (() => {
-    if ([12, 1, 2].includes(month)) return "summer"; // original project used southern seasons by name; preserve original mapping where 12..3 -> summer
-    if ([3, 4, 5].includes(month)) return "spring";
-    if ([6, 7, 8].includes(month)) return "winter";
-    return "autumn";
-  })();
-  // If we know hemisphere, flip seasons when in southern hemisphere
-  if (externalHemisphere === "south") {
-    // flip: summer <-> winter, spring <-> autumn
-    if (northSeason === "summer") return "winter";
-    if (northSeason === "winter") return "summer";
-    if (northSeason === "spring") return "autumn";
-    if (northSeason === "autumn") return "spring";
-  }
-  return northSeason;
+  const month = date.getMonth() + 1;
+  if ([12, 1, 2, 3].includes(month)) return "summer";
+  if ([9, 10, 11].includes(month)) return "spring";
+  if ([6, 7, 8].includes(month)) return "winter";
+  return "autumn";
 }
 
 function getActiveWeather(h, season, date) {
@@ -1227,8 +1189,6 @@ let weatherAbortController = null;
 
 async function fetchWeatherForCity(city) {
   if (!city || !city.trim()) return;
-  isFetchingWeather = true;
-  updateWeatherBar();
   try {
     if (geocodeAbortController) geocodeAbortController.abort();
     geocodeAbortController = new AbortController();
@@ -1237,175 +1197,54 @@ async function fetchWeatherForCity(city) {
       { signal: geocodeAbortController.signal },
     );
     const geoJson = await geoRes.json();
-    if (!geoJson || !geoJson[0]) {
-      externalWeather = null;
-      externalWeatherFetchedAt = 0;
-      return;
-    }
+    if (!geoJson || !geoJson[0]) return;
     const lat = parseFloat(geoJson[0].lat);
     const lon = parseFloat(geoJson[0].lon);
-    externalLat = lat;
-    externalLon = lon;
-    externalHemisphere = lat < 0 ? "south" : "north";
     if (weatherAbortController) weatherAbortController.abort();
     weatherAbortController = new AbortController();
-    // Request current_weather + hourly for fallback fields
-    const url =
+    const wres = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-      `&current_weather=true&hourly=temperature_2m,apparent_temperature,relativehumidity_2m,windspeed_10m,weathercode` +
-      `&daily=sunrise,sunset&timezone=auto&forecast_days=1`;
-    const wres = await fetch(url, { signal: weatherAbortController.signal });
+        `&current=temperature_2m,apparent_temperature,relative_humidity_2m,windspeed_10m,weathercode` +
+        `&daily=sunrise,sunset&timezone=auto&forecast_days=1`,
+      { signal: weatherAbortController.signal },
+    );
     const wjson = await wres.json();
-
-    // Defaults in case parsing fails
-    let cat = null;
-    let temp = null,
-      feels = null,
-      hum = null,
-      wind = null,
-      condLabel = null;
-
-    // Preferred: current_weather block
-    if (wjson && wjson.current_weather) {
-      const c = wjson.current_weather;
-      cat = weatherCodeToCategory(c.weathercode);
-      temp = typeof c.temperature === "number" ? Math.round(c.temperature) : null;
-      wind = typeof c.windspeed === "number" ? Math.round(c.windspeed) : null;
-      condLabel = weatherCodeToLabel(c.weathercode);
-      // attempt to find matching hourly index for additional fields
-      if (wjson.hourly && Array.isArray(wjson.hourly.time)) {
-        const tIndex = wjson.hourly.time.indexOf(c.time || "");
-        const idx = tIndex >= 0 ? tIndex : wjson.hourly.time.length - 1;
-        if (wjson.hourly.temperature_2m && wjson.hourly.temperature_2m[idx] !== undefined)
-          temp = Math.round(wjson.hourly.temperature_2m[idx]);
-        if (
-          wjson.hourly.apparent_temperature &&
-          wjson.hourly.apparent_temperature[idx] !== undefined
-        )
-          feels = Math.round(wjson.hourly.apparent_temperature[idx]);
-        if (
-          wjson.hourly.relativehumidity_2m &&
-          wjson.hourly.relativehumidity_2m[idx] !== undefined
-        )
-          hum = Math.round(wjson.hourly.relativehumidity_2m[idx]);
-      }
-      // parse local time parts from current_weather.time (format YYYY-MM-DDTHH:MM)
-      try {
-        const t = c.time || "";
-        const m = t.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-        if (m) {
-          externalLocalDateParts = {
-            year: parseInt(m[1], 10),
-            month: parseInt(m[2], 10),
-            day: parseInt(m[3], 10),
-            hour: parseInt(m[4], 10),
-            minute: parseInt(m[5], 10),
-          };
-        }
-      } catch (e) {}
-    } else if (wjson && wjson.hourly) {
-      // fallback to latest hourly sample
-      const h = wjson.hourly;
-      const last = h.time && h.time.length ? h.time.length - 1 : 0;
-      if (h.weathercode && h.weathercode[last] !== undefined)
-        cat = weatherCodeToCategory(h.weathercode[last]);
-      if (h.temperature_2m && h.temperature_2m[last] !== undefined)
-        temp = Math.round(h.temperature_2m[last]);
-      if (h.apparent_temperature && h.apparent_temperature[last] !== undefined)
-        feels = Math.round(h.apparent_temperature[last]);
-      if (h.relativehumidity_2m && h.relativehumidity_2m[last] !== undefined)
-        hum = Math.round(h.relativehumidity_2m[last]);
-      if (h.windspeed_10m && h.windspeed_10m[last] !== undefined)
-        wind = Math.round(h.windspeed_10m[last]);
-      // attempt to parse a local time from the latest hourly time entry
-      try {
-        const t = h.time && h.time[last];
-        const m = t && t.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-        if (m) {
-          externalLocalDateParts = {
-            year: parseInt(m[1], 10),
-            month: parseInt(m[2], 10),
-            day: parseInt(m[3], 10),
-            hour: parseInt(m[4], 10),
-            minute: parseInt(m[5], 10),
-          };
-        }
-      } catch (e) {}
-    }
-
-    // capture timezone name if provided by API
-    try {
-      externalTimezone = wjson.timezone || null;
-    } catch (e) {}
-
-    if (cat) {
-      externalWeather = cat;
+    if (wjson && wjson.current) {
+      const c = wjson.current;
+      externalWeather = weatherCodeToCategory(c.weathercode);
       externalWeatherFetchedAt = Date.now();
-      // persist external info so reloads keep the same timezone/season
+      weatherInfo.temp = Math.round(c.temperature_2m);
+      weatherInfo.feelsLike = Math.round(c.apparent_temperature);
+      weatherInfo.humidity = Math.round(c.relative_humidity_2m);
+      weatherInfo.windspeed = Math.round(c.windspeed_10m);
+      weatherInfo.condition = weatherCodeToLabel(c.weathercode);
+      // persist external info
       try {
         localStorage.setItem(
           EXTERNAL_STORAGE_KEY,
           JSON.stringify({
             externalWeather,
             externalWeatherFetchedAt,
-            externalLat,
-            externalLon,
-            externalHemisphere,
+            externalLat: lat,
+            externalLon: lon,
+            externalHemisphere: lat < 0 ? 'south' : 'north',
             externalLocalDateParts,
             externalTimezone,
-            currentCity,
+            currentCity: city,
           }),
         );
       } catch (e) {}
-    } else {
-      externalWeather = null;
-      externalWeatherFetchedAt = 0;
     }
-
-    // write human-readable fields if available
-    weatherInfo.temp = temp !== null ? temp : weatherInfo.temp;
-    weatherInfo.feelsLike = feels !== null ? feels : weatherInfo.feelsLike;
-    weatherInfo.humidity = hum !== null ? hum : weatherInfo.humidity;
-    weatherInfo.windspeed = wind !== null ? wind : weatherInfo.windspeed;
-    weatherInfo.condition = condLabel || weatherInfo.condition;
     if (wjson && wjson.daily) {
-      weatherInfo.sunrise = (wjson.daily.sunrise[0] || "").split("T")[1] || null;
+      weatherInfo.sunrise =
+        (wjson.daily.sunrise[0] || "").split("T")[1] || null;
       weatherInfo.sunset = (wjson.daily.sunset[0] || "").split("T")[1] || null;
     }
     updateWeatherBar();
   } catch (e) {
-    // network/abort errors — clear live weather so UI falls back predictably
-    externalWeather = null;
-    externalWeatherFetchedAt = 0;
-    console.warn("fetchWeatherForCity failed:", e && e.message);
-  } finally {
-    isFetchingWeather = false;
-    updateWeatherBar();
+    /* ignore abort / network errors */
   }
 }
-
-// Restore last-known external location/timezone/hemisphere from localStorage
-function loadExternalFromStorage() {
-  try {
-    const raw = localStorage.getItem(EXTERNAL_STORAGE_KEY);
-    if (!raw) return;
-    const obj = JSON.parse(raw);
-    if (!obj) return;
-    if (obj.externalWeather !== undefined) externalWeather = obj.externalWeather;
-    if (obj.externalWeatherFetchedAt !== undefined)
-      externalWeatherFetchedAt = obj.externalWeatherFetchedAt;
-    if (obj.externalLat !== undefined) externalLat = obj.externalLat;
-    if (obj.externalLon !== undefined) externalLon = obj.externalLon;
-    if (obj.externalHemisphere !== undefined)
-      externalHemisphere = obj.externalHemisphere;
-    if (obj.externalLocalDateParts !== undefined)
-      externalLocalDateParts = obj.externalLocalDateParts;
-    if (obj.externalTimezone !== undefined) externalTimezone = obj.externalTimezone;
-    if (obj.currentCity) currentCity = obj.currentCity;
-  } catch (e) {}
-}
-
-loadExternalFromStorage();
 
 function updateTimeDisplay(h) {
   if (!timeDisplay) return;
@@ -1445,42 +1284,6 @@ function updateWeatherBar() {
   if (moonData.phase) {
     set("wb-moon", `${moonData.emoji || ""} ${moonData.phase}`);
   }
-
-  // Weather source/status indicator (inject into wb-city row)
-  try {
-    const row = document.getElementById("wb-city-row");
-    if (row) {
-      const existing = document.getElementById("wb-source-badge");
-      if (existing) existing.remove();
-      const badge = document.createElement("span");
-      badge.id = "wb-source-badge";
-      badge.style.marginLeft = "8px";
-      badge.style.fontSize = "11px";
-      badge.style.opacity = "0.7";
-      if (isFetchingWeather) {
-        badge.innerText = "(carregando...)";
-      } else if (externalWeather && Date.now() - externalWeatherFetchedAt < 5 * 60 * 1000) {
-        badge.innerText = "(ao vivo)";
-      } else {
-        badge.innerText = "(local)"; // deterministic/local fallback
-      }
-      // timezone label (replace existing to avoid duplicates)
-      try {
-        const existingTz = document.getElementById('wb-tz');
-        if (existingTz) existingTz.remove();
-      } catch (e) {}
-      if (externalTimezone) {
-        const tz = document.createElement("span");
-        tz.id = 'wb-tz';
-        tz.style.marginLeft = "6px";
-        tz.style.fontSize = "11px";
-        tz.style.opacity = "0.6";
-        tz.innerText = externalTimezone;
-        row.appendChild(tz);
-      }
-      row.appendChild(badge);
-    }
-  } catch (e) {}
 }
 
 function drawWeatherText() {
