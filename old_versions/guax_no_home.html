@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Guaxinim Tempo Real</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap');
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    canvas#gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      image-rendering: pixelated;
+      transition: filter 0.5s ease;
+    }
+
+    /* UI Styles */
+    #ui-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    #ui-toggle:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: scale(1.1) rotate(90deg);
+    }
+
+    #ui-panel {
+      position: absolute;
+      top: 20px;
+      right: 90px;
+      width: 320px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: rgba(15, 15, 20, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 28px;
+      color: #fff;
+      z-index: 99;
+      transform: translateX(130%);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    }
+
+    #ui-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+    #ui-panel::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2);
+      border-radius: 4px;
+    }
+
+    #ui-panel.open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .ui-group {
+      margin-bottom: 22px;
+    }
+
+    .ui-group label.group-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #a29bfe;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .ui-group input[type="text"], 
+    .ui-group select,
+    .ui-group input[type="range"],
+    .ui-group input[type="file"] {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.3s, background 0.3s;
+      appearance: none;
+    }
+
+    .ui-group input[type="text"]:focus,
+    .ui-group select:focus,
+    .ui-group input[type="file"]:focus {
+      border-color: #a29bfe;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .ui-group select option {
+      background: #1e1e2e;
+      color: white;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      background: rgba(255,255,255,0.03);
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+
+    .toggle-row label {
+      margin: 0;
+      color: #dfe6e9;
+      font-size: 14px;
+      font-weight: 400;
+    }
+
+    /* Custom Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255,255,255,0.15);
+      transition: .4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #a29bfe;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    .time-display {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 300;
+      margin-bottom: 24px;
+      color: #fff;
+      letter-spacing: 2px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+
+    /* Range slider custom styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+      padding: 0;
+      margin-top: 5px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #a29bfe;
+      cursor: pointer;
+      margin-top: -8px;
+      box-shadow: 0 0 10px rgba(162, 155, 254, 0.5);
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+    }
+
+    /* File input styling */
+    .ui-group input[type="file"]::file-selector-button {
+      background: rgba(162, 155, 254, 0.2);
+      color: #a29bfe;
+      border: 1px solid rgba(162, 155, 254, 0.5);
+      border-radius: 6px;
+      padding: 6px 12px;
+      margin-right: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: 'Outfit', sans-serif;
+      transition: background 0.3s;
+    }
+
+    .ui-group input[type="file"]::file-selector-button:hover {
+      background: rgba(162, 155, 254, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <button id="ui-toggle">⚙️</button>
+  
+  <div id="ui-panel">
+    <div class="time-display" id="time-display">12:00</div>
+    
+    <div class="ui-group">
+      <label class="group-label">Location</label>
+      <input type="text" id="city-input" value="São Paulo" />
+    </div>
+
+    <div class="ui-group">
+      <div class="toggle-row">
+        <label>Manual Time</label>
+        <label class="switch">
+          <input type="checkbox" id="override-time">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <input type="range" id="time-slider" min="0" max="23.99" step="0.1" value="12" class="hidden" />
+    </div>
+
+    <div class="ui-group">
+      <div class="toggle-row">
+        <label>Manual Season</label>
+        <label class="switch">
+          <input type="checkbox" id="override-season">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <select id="season-select" class="hidden">
+        <option value="spring">🌸 Spring</option>
+        <option value="summer">☀️ Summer</option>
+        <option value="autumn">🍂 Autumn</option>
+        <option value="winter">❄️ Winter</option>
+      </select>
+    </div>
+
+    <div class="ui-group">
+      <div class="toggle-row">
+        <label>Manual Weather</label>
+        <label class="switch">
+          <input type="checkbox" id="override-weather">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <select id="weather-select" class="hidden">
+        <option value="clear">☀️ Clear</option>
+        <option value="cloudy">☁️ Cloudy</option>
+        <option value="rain">🌧️ Rain</option>
+        <option value="storm">⛈️ Storm</option>
+        <option value="snow">🌨️ Snow</option>
+      </select>
+    </div>
+
+    <div class="ui-group">
+      <label class="group-label">Assets</label>
+      <div style="margin-bottom: 12px;">
+        <label class="group-label">Raccoon Image</label>
+        <input type="file" id="raccoon-image-input" accept="image/*" />
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label class="group-label">Side Trees (Small)</label>
+        <label style="font-size: 12px; color: #888;">Select spring_small, summer_small, autumn_small, winter_small</label>
+        <input type="file" id="season-small-images-input" multiple accept="image/*" />
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label class="group-label">Center Trees</label>
+        <label style="font-size: 12px; color: #888;">Select spring, summer, autumn, winter images</label>
+        <input type="file" id="season-center-images-input" multiple accept="image/*" />
+      </div>
+    </div>
+
+    <div class="ui-group">
+      <label class="group-label">Positions</label>
+      <div class="toggle-row">
+        <label>Tree 1 Pos</label>
+        <input type="range" id="tree1-x" min="0" max="100" value="15" />
+      </div>
+      <div class="toggle-row">
+        <label>Tree 2 Pos</label>
+        <input type="range" id="tree2-x" min="0" max="100" value="80" />
+      </div>
+      <div class="toggle-row">
+        <label>Bonfire Pos</label>
+        <input type="range" id="bonfire-x" min="0" max="100" value="65" />
+      </div>
+      <div style="margin-top:12px;">
+        <label class="group-label">Center Tree Y Offset</label>
+        <div class="toggle-row">
+          <label style="margin:0">Vertical Offset</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="range" id="center-tree-y" min="0" max="500" step="1" value="160" />
+            <div id="center-tree-y-val" style="min-width:60px; text-align:right; color:#fff;">160px</div>
+          </div>
+        </div>
+        <div style="margin-top:8px; text-align:right;">
+          <button id="save-center-tree" style="padding:8px 12px; border-radius:8px; background:#2d3436; color:#fff; border:none; cursor:pointer;">Save</button>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="group-label">Sheet Bottom Nudge</label>
+        <div class="toggle-row">
+          <label style="margin:0">Sheet Bottom Nudge</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="range" id="sheet-bottom-nudge" min="-200" max="200" step="1" value="0" />
+            <div id="sheet-bottom-nudge-val" style="min-width:60px; text-align:right; color:#fff;">0px</div>
+          </div>
+        </div>
+        <div style="margin-top:8px; text-align:right;">
+          <button id="save-sheet-bottom" style="padding:8px 12px; border-radius:8px; background:#2d3436; color:#fff; border:none; cursor:pointer;">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- State & UI Logic ---
+    let currentCity = 'São Paulo';
+    let isAutoTime = true;
+    let manualTimeVal = 12; 
+    
+    let isAutoSeason = true;
+    let manualSeasonVal = 'summer';
+
+    let isAutoWeather = true;
+    let manualWeatherVal = 'clear';
+
+    let tree1Pct = 15;
+    let tree2Pct = 80;
+    let bonfirePct = 65;
+
+    const uiToggle = document.getElementById('ui-toggle');
+    const uiPanel = document.getElementById('ui-panel');
+    const cityInput = document.getElementById('city-input');
+    
+    const overrideTime = document.getElementById('override-time');
+    const timeSlider = document.getElementById('time-slider');
+    const timeDisplay = document.getElementById('time-display');
+    
+    const overrideSeason = document.getElementById('override-season');
+    const seasonSelect = document.getElementById('season-select');
+    
+    const overrideWeather = document.getElementById('override-weather');
+    const weatherSelect = document.getElementById('weather-select');
+
+    const tree1Slider = document.getElementById('tree1-x');
+    const tree2Slider = document.getElementById('tree2-x');
+    const bonfireSlider = document.getElementById('bonfire-x');
+
+    uiToggle.addEventListener('click', () => {
+      uiPanel.classList.toggle('open');
+    });
+
+    cityInput.addEventListener('input', (e) => { currentCity = e.target.value; });
+
+    overrideTime.addEventListener('change', (e) => {
+      isAutoTime = !e.target.checked;
+      if (isAutoTime) timeSlider.classList.add('hidden');
+      else timeSlider.classList.remove('hidden');
+    });
+    timeSlider.addEventListener('input', (e) => { manualTimeVal = parseFloat(e.target.value); });
+
+    overrideSeason.addEventListener('change', (e) => {
+      isAutoSeason = !e.target.checked;
+      if (isAutoSeason) seasonSelect.classList.add('hidden');
+      else seasonSelect.classList.remove('hidden');
+    });
+    seasonSelect.addEventListener('change', (e) => { manualSeasonVal = e.target.value; });
+
+    overrideWeather.addEventListener('change', (e) => {
+      isAutoWeather = !e.target.checked;
+      if (isAutoWeather) weatherSelect.classList.add('hidden');
+      else weatherSelect.classList.remove('hidden');
+    });
+    weatherSelect.addEventListener('change', (e) => { manualWeatherVal = e.target.value; });
+
+    tree1Slider.addEventListener('input', (e) => { tree1Pct = parseFloat(e.target.value); });
+    tree2Slider.addEventListener('input', (e) => { tree2Pct = parseFloat(e.target.value); });
+    bonfireSlider.addEventListener('input', (e) => { bonfirePct = parseFloat(e.target.value); });
+
+    // --- Game Logic ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // Base Themes
+    const THEMES = {
+      manha: { sky1:'#74b9ff', sky2:'#81ecec', sky3:'#ffeaa7', mountain:'#827397', mountainLight:'#a29bfe' },
+      dia:   { sky1:'#0984e3', sky2:'#74b9ff', sky3:'#81ecec', mountain:'#4a5b63', mountainLight:'#636e72' },
+      tarde: { sky1:'#6c5ce7', sky2:'#e84393', sky3:'#fdcb6e', mountain:'#1b1b2f', mountainLight:'#2d3436' },
+      noite: { sky1:'#000000', sky2:'#1e272e', sky3:'#0f1423', mountain:'#0a0a0f', mountainLight:'#1e272e' }
+    };
+
+    const SEASON_COLORS = {
+      spring: { grass1: '#55efc4', grass2: '#00b894', leafM: '#fd79a8', leafN: '#e84393', leafE: '#d63031' }, 
+      summer: { grass1: '#78e08f', grass2: '#38ada9', leafM: '#2ecc71', leafN: '#27ae60', leafE: '#1e8449' }, 
+      autumn: { grass1: '#e58e26', grass2: '#b71540', leafM: '#f39c12', leafN: '#d35400', leafE: '#e67e22' }, 
+      winter: { grass1: '#dfe6e9', grass2: '#b2bec3', leafM: '#ecf0f1', leafN: '#bdc3c7', leafE: '#95a5a6' }  
+    };
+
+    const BASE_COLORS = {
+      T: null,
+      K: '#1e272e',
+      B: '#834c32', D: '#5c3a21',
+      S: '#f1c40f', O: '#e67e22',
+      C: '#f5f6fa', Y: '#ffffff', V: '#dcdde1', I: '#7f8fa6',
+      G: '#a5b1c2', A: '#485460',
+      R: '#ff9ff3', P: '#f368e0',
+      F: '#e74c3c'
+    };
+
+    function getColor(char, season) {
+      if (BASE_COLORS[char] !== undefined) return BASE_COLORS[char];
+      const sc = SEASON_COLORS[season];
+      if (char === 'M') return sc.leafM;
+      if (char === 'N') return sc.leafN;
+      if (char === 'E') return sc.leafE;
+      return '#000';
+    }
+
+    const TREE = [
+      'TTTTTTTTTTKKKKKKTTTTTTTTTT',
+      'TTTTTTTKKKMMMMMMKKKTTTTTTT',
+      'TTTTTKKMMMMMMMMMMMMKKTTTTT',
+      'TTTTKMMMMMMNNNNMMMMMMKTTTT',
+      'TTTKMMMMMNNNNNNNNMMMMMKTTT',
+      'TTKMMMMMNNNNNNNNNNMMMMMKTT',
+      'TKMMMMMNNNNNNNNNNNNMMMMKTT',
+      'TKMMMMNNNNNNNNNNNNNNMMMMKT',
+      'KMMMMNNNNNNNNNNNNNNNNMMMMK',
+      'KMMMNNNNNNNEEEENNNNNNNMMMK',
+      'KMMMNNNNNNEEEEEEENNNNNMMMK',
+      'KMMNNNNNNNEEEEEEEENNNNNMMK',
+      'TKNNNNNNNNEEEEEEEENNNNNNKT',
+      'TKNNNNNNNNEEEEEEEENNNNNNKT',
+      'TTKNNNNNNNEEEEEEEENNNNNKTT',
+      'TTTKKNNNNNEEEEEEENNNNKKTTT',
+      'TTTTTKKNNNEEEEEENNNKKTTTTT',
+      'TTTTTTTKKNEEEEEENKKTTTTTTT',
+      'TTTTTTTTTKKEEEEKKTTTTTTTTT',
+      'TTTTTTTTTTTKBBKTTTTTTTTTTT',
+      'TTTTTTTTTTTKBDBKTTTTTTTTTT',
+      'TTTTTTTTTTTKBDBKTTTTTTTTTT',
+      'TTTTTTTTTTTKKKKKTTTTTTTTTT',
+      'TTTTTTTTTTTKKKKKTTTTTTTTTT',
+      'TTTTTTTTTTKKKKKKKTTTTTTTTT',
+      'TTTTTTTTTKKKKKKKKKTTTTTTTT',
+      'TTTTTTTTTKKKKKKKKKTTTTTTTT'
+    ];
+
+    const BONFIRE_1 = [
+      'TTTTTFTTTTT',
+      'TTTTFOFTTTT',
+      'TTTOOOFTTTT',
+      'TTFOOSOFTTT',
+      'TFOOSSOOFTT',
+      'TFOOSSSOFTT',
+      'FOOSSSSSOFT',
+      'KDKKBBKKDKT',
+      'TKDBKKBDKTT',
+      'TTKKKKKTTTT'
+    ];
+    const BONFIRE_2 = [
+      'TTTTTTFTTTT',
+      'TTTTTFOFTTT',
+      'TTTTOOFTTTT',
+      'TTTOOSOFTTT',
+      'TTFOOSOOFTT',
+      'TFOOSSSOFTT',
+      'FOOSSSSSOFT',
+      'KDKKBBKKDKT',
+      'TKDBKKBDKTT',
+      'TTKKKKKTTTT'
+    ];
+
+    const BUSH = [
+      'TTTTTTMMMMMNTTTTTT',
+      'TTTTMMMMMMNNNNTTTT',
+      'TTTMMMMMMNNNNNETTT',
+      'TTMMMMMMMNNNNNEETT',
+      'TMMMMMMNNNNNEEEEET',
+      'MMMMMNNNNNEEEEEEEE',
+      'MMMMNNNNNNEEEEEEEE'
+    ];
+
+    const FLOWER = [
+      'TRT',
+      'RPR',
+      'TRT',
+      'TNT',
+      'MNN'
+    ];
+
+    const ROCK = [
+      'TTGGTT',
+      'TGGGGT',
+      'GDDGGA',
+      'DAAADA'
+    ];
+
+    const SUN = [
+      'TTTTTTTSTTTTTTT',
+      'TTTTTTTSTTTTTTT',
+      'TTSTTTTSTTTTSTT',
+      'TTTSTOOSSOOSTTT',
+      'TTTTOOSSSSOOTTT',
+      'TTTOSSSYYSSSOTT',
+      'TTOSSYYYYYYSSOT',
+      'SSOSYYYYYYYYOSS',
+      'TTOSSYYYYYYSSOT',
+      'TTTOSSSYYSSSOTT',
+      'TTTTOOSSSSOOTTT',
+      'TTTSTOOSSOOSTTT',
+      'TTSTTTTSTTTTSTT',
+      'TTTTTTTSTTTTTTT',
+      'TTTTTTTSTTTTTTT'
+    ];
+
+    const MOON = [
+      'TTTTTCCCCCCCTTTT',
+      'TTTCCVVVVCCCCCCT',
+      'TTCVVVVVVVVCCCCT',
+      'TCCVVVVVCCCVVVCT',
+      'TCCCVVVCCCCVVVCT',
+      'TCCCCCCCCCCVVVCT',
+      'CCCVCCCCCCCCCCCC',
+      'CCVVVCCCCCCCCCCC',
+      'CCVVVCCCCCVVVCCC',
+      'CCCVCCCCCVVVVVCC',
+      'TCCCCCCCCCVVVVCT',
+      'TCCCCCCCCCCVVVCT',
+      'TTCCCCCVVVCCCCTT',
+      'TTTCCCCCVCCCCCTT',
+      'TTTTTCCCCCCCTTTT',
+      'TTTTTTTTTTTTTTTT'
+    ];
+
+    const CLOUD = [
+      'TTTTTTTTYYYYTTTTTTTT',
+      'TTTTTTYYYYYYYYTTTTTT',
+      'TTTTYYYYYYYYYYYYTTTT',
+      'TTYYYYYYYYYYYYYYYYTT',
+      'YYYYYYYYYYYYYYYYYYYY',
+      'YYYYYYYYYYYYYYYYYYYY',
+      'TYYYYYYYYYYYYYYYYYYT'
+    ];
+
+    const raccoonImg = new Image();
+    raccoonImg.src = 'guaxinim_inteiro_transp.png';
+
+    let grassBlades = [];
+    function initGrass() {
+      grassBlades = Array.from({ length: 300 }, () => ({
+        x: Math.random() * window.innerWidth * 2,
+        height: Math.random() * 15 + 5,
+        width: Math.random() * 4 + 2,
+        isFlower: Math.random() > 0.95
+      }));
+    }
+
+    const fireflies = Array.from({ length: 25 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight * 0.3 + window.innerHeight * 0.6,
+      phase: Math.random() * Math.PI * 2,
+      speedX: (Math.random() - 0.5) * 0.5,
+      speedY: (Math.random() - 0.5) * 0.5
+    }));
+
+    const stars = Array.from({ length: 150 }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      speed: Math.random() * 0.05,
+      twinkle: Math.random() * Math.PI * 2
+    }));
+
+    const clouds = [
+      { x: 10, y: 15, speed: 0.5, scale: 6 },
+      { x: 50, y: 10, speed: 0.3, scale: 4 },
+      { x: 80, y: 25, speed: 0.8, scale: 5 },
+      { x: 20, y: 35, speed: 0.4, scale: 7 }
+    ];
+    
+    const snowflakes = Array.from({ length: 200 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      speedY: Math.random() * 1 + 0.5,
+      speedX: (Math.random() - 0.5) * 0.5,
+      size: Math.random() * 3 + 1
+    }));
+
+    const shootingStars = [];
+    let raccoon = { bounceOffset: 0, flip: false, frame: 0 };
+    let lightningFlash = 0;
+
+    let raccoonState = 'idle';
+    let raccoonScale = 1;
+    let raccoonX = window.innerWidth / 2;
+    let randomHoleTime = Date.now() + Math.random() * 30000;
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      raccoonX = canvas.width / 2;
+      initGrass();
+    }
+
+    function drawSprite(sprite, startX, startY, scale, season, flip = false) {
+      for (let y = 0; y < sprite.length; y++) {
+        const row = sprite[y];
+        for (let x = 0; x < row.length; x++) {
+          const char = row[x];
+          if (char === 'T') continue;
+          const drawX = flip ? row.length - 1 - x : x;
+          ctx.fillStyle = getColor(char, season);
+          ctx.fillRect(startX + drawX * scale, startY + y * scale, scale, scale);
+        }
+      }
+    }
+
+    function getActiveTime() {
+      if (!isAutoTime) return manualTimeVal;
+      const now = new Date();
+      return now.getHours() + now.getMinutes() / 60;
+    }
+
+    function getTimeTheme(h) {
+      if (h >= 6 && h < 9) return 'manha';
+      if (h >= 9 && h < 17) return 'dia';
+      if (h >= 17 && h < 18) return 'tarde';
+      return 'noite';
+    }
+
+    function getActiveSeason(date) {
+      if (!isAutoSeason) return manualSeasonVal;
+      const month = date.getMonth() + 1;
+      if ([12, 1, 2, 3].includes(month)) return 'summer';
+      if ([9, 10, 11].includes(month)) return 'spring';
+      if ([6, 7, 8].includes(month)) return 'winter';
+      return 'autumn';
+    }
+
+    function getActiveWeather(h, season, date) {
+      if (!isAutoWeather) return manualWeatherVal;
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const seed = Math.sin(day * 23 + month * 7 + Math.floor(h) * 17) * 10000;
+      const variation = (seed - Math.floor(seed));
+      
+      let rainChance = 0.45;
+      if (season === 'summer') rainChance = 0.75;
+      if (season === 'spring') rainChance = 0.55;
+      if (season === 'winter') rainChance = 0.60;
+
+      if (h >= 12 && h < 18) {
+        if (variation < rainChance) {
+          if (season === 'winter') return 'snow';
+          return variation < rainChance * 0.6 ? 'rain' : 'storm';
+        }
+        if (variation < 0.75) return 'cloudy';
+        return 'clear';
+      }
+
+      if (h >= 6 && h < 12) {
+        if (variation < 0.35) {
+          if (season === 'winter' && variation < 0.15) return 'snow';
+          return 'cloudy';
+        }
+        return 'clear';
+      }
+
+      if (variation < 0.4) {
+        if (season === 'winter' && variation < 0.2) return 'snow';
+        return 'cloudy';
+      }
+      return 'clear';
+    }
+
+    function drawBlockyMountain(centerX, groundY, peakHeight, baseWidth, colorShadow, colorLight, hasSnow) {
+      const blockSize = 16;
+      const steps = Math.max(1, Math.floor(peakHeight / blockSize));
+      const stepWidth = (baseWidth / 2) / steps;
+
+      for (let i = 0; i < steps; i++) {
+        const currentY = groundY - (i * blockSize);
+        const currentHalfWidth = (baseWidth / 2) - (i * stepWidth);
+        const leftColor = hasSnow && i > steps * 0.65 ? '#dfe6e9' : colorShadow;
+        const rightColor = hasSnow && i > steps * 0.65 ? '#ffffff' : colorLight;
+        ctx.fillStyle = leftColor;
+        ctx.fillRect(centerX - currentHalfWidth, currentY - blockSize, currentHalfWidth, blockSize);
+        ctx.fillStyle = rightColor;
+        ctx.fillRect(centerX, currentY - blockSize, currentHalfWidth, blockSize);
+      }
+    }
+
+    function drawRain(groundY, intensity) {
+      const dropCount = Math.floor(100 + intensity * 200);
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < dropCount; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const length = 10 + Math.random() * 15;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 4, y + length);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let i = 0; i < 15; i++) {
+        const px = Math.random() * canvas.width;
+        const py = groundY + Math.random() * (canvas.height - groundY);
+        const radius = 6 + Math.random() * 10;
+        ctx.beginPath();
+        ctx.arc(px, py, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawSnow() {
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      snowflakes.forEach(f => {
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+        ctx.fill();
+        f.y += f.speedY;
+        f.x += f.speedX;
+        if (f.y > canvas.height) {
+          f.y = -10;
+          f.x = Math.random() * canvas.width;
+        }
+      });
+    }
+
+    function updateTimeDisplay(h) {
+      const hours = Math.floor(h);
+      const minutes = Math.floor((h - hours) * 60);
+      timeDisplay.innerText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+
+    function drawWeatherText(weather, themeName, season) {
+      const label = `${currentCity} · ${season.toUpperCase()} · ${weather.toUpperCase()} · ${themeName.toUpperCase()}`;
+      ctx.font = '16px "Outfit", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(label, 20, 35);
+      ctx.shadowBlur = 0;
+    }
+
+    function loop() {
+      const now = new Date();
+      const h = getActiveTime();
+      updateTimeDisplay(h);
+
+      const themeName = getTimeTheme(h);
+      const theme = THEMES[themeName];
+      const season = getActiveSeason(now);
+      const weather = getActiveWeather(h, season, now);
+      
+      const isNight = h >= 18 || h < 6;
+      const groundY = canvas.height * 0.75;
+
+      // Raccoon AI Logic
+      const isUncomfortable = weather === 'rain' || weather === 'storm' || weather === 'snow';
+      
+      if (Date.now() > randomHoleTime && Date.now() < randomHoleTime + 15000) {
+        // Hiding randomly
+      } else if (Date.now() > randomHoleTime + 15000) {
+        randomHoleTime = Date.now() + Math.random() * 40000 + 10000;
+      }
+      const isRandomlyHiding = Date.now() > randomHoleTime && Date.now() < randomHoleTime + 15000;
+      const shouldHide = isUncomfortable || isRandomlyHiding;
+
+      let targetX = canvas.width / 2;
+      if (shouldHide || raccoonState === 'hiding') {
+        const t1X = (tree1Pct / 100) * canvas.width + 104; // 104 is the center of the tree hole
+        const t2X = (tree2Pct / 100) * canvas.width + 104;
+        targetX = Math.abs(raccoonX - t1X) < Math.abs(raccoonX - t2X) ? t1X : t2X;
+      }
+
+      const speed = canvas.width * 0.003;
+      if (Math.abs(raccoonX - targetX) > speed) {
+        raccoonState = 'walking';
+        if (raccoonX < targetX) {
+          raccoonX += speed;
+          raccoon.flip = false;
+        } else {
+          raccoonX -= speed;
+          raccoon.flip = true;
+        }
+        raccoonScale = 1;
+      } else {
+        if (shouldHide) {
+          raccoonState = 'hiding';
+          if (raccoonScale > 0) raccoonScale -= 0.05;
+          if (raccoonScale < 0) raccoonScale = 0;
+        } else {
+          raccoonState = 'idle';
+          if (raccoonScale < 1) raccoonScale += 0.05;
+          if (raccoonScale > 1) raccoonScale = 1;
+        }
+      }
+
+      // Sky
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.8);
+      skyGradient.addColorStop(0, theme.sky1);
+      skyGradient.addColorStop(0.4, theme.sky2);
+      skyGradient.addColorStop(1, theme.sky3);
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (weather === 'cloudy' || weather === 'snow') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (weather === 'rain') {
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.15)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (weather === 'storm') {
+        ctx.fillStyle = 'rgba(0, 0, 30, 0.25)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (Math.random() < 0.02) lightningFlash = 8;
+      }
+
+      if (isNight) {
+        stars.forEach((s) => {
+          s.twinkle += s.speed;
+          const opacity = (Math.sin(s.twinkle) + 1) / 2;
+          ctx.fillStyle = `rgba(255,255,255,${opacity})`;
+          ctx.fillRect(s.x * canvas.width, s.y * canvas.height * 0.7, 4, 4);
+        });
+
+        if (Math.random() < 0.005 && weather === 'clear') {
+          shootingStars.push({
+            x: Math.random() * canvas.width,
+            y: 0,
+            len: Math.random() * 50 + 20,
+            speed: Math.random() * 5 + 10
+          });
+        }
+
+        shootingStars.forEach((ss, index) => {
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(ss.x, ss.y);
+          ctx.lineTo(ss.x - ss.len, ss.y - ss.len);
+          ctx.stroke();
+          ss.x += ss.speed;
+          ss.y += ss.speed;
+          if (ss.y > canvas.height) shootingStars.splice(index, 1);
+        });
+      }
+
+      if (!isNight) {
+        const timePercent = (h - 6) / 12;
+        const sunX = canvas.width * 0.1 + canvas.width * 0.8 * timePercent;
+        const sunY = canvas.height * 0.1 + Math.sin(timePercent * Math.PI) * -80;
+        drawSprite(SUN, sunX, sunY, 8, season);
+      } else {
+        const nightH = h >= 18 ? h - 18 : h + 6;
+        const timePercent = nightH / 12;
+        const moonX = canvas.width * 0.1 + canvas.width * 0.8 * timePercent;
+        const moonY = canvas.height * 0.15;
+        drawSprite(MOON, moonX, moonY, 8, season);
+      }
+
+      if (weather !== 'rain' && weather !== 'storm' && weather !== 'snow') {
+        clouds.forEach((c) => {
+          c.x += c.speed;
+          if (c.x > 110) c.x = -20;
+          drawSprite(CLOUD, (c.x / 100) * canvas.width, (c.y / 100) * canvas.height, c.scale, season);
+        });
+      } else {
+        const extraClouds = clouds.concat([
+          { x: 35, y: 18, speed: 0.35, scale: 5 },
+          { x: 70, y: 22, speed: 0.45, scale: 6 }
+        ]);
+        extraClouds.forEach((c) => {
+          c.x += c.speed;
+          if (c.x > 110) c.x = -25;
+          drawSprite(CLOUD, (c.x / 100) * canvas.width, (c.y / 100) * canvas.height, c.scale, season);
+        });
+      }
+
+      const mtnSnow = season === 'winter' || weather === 'snow';
+      drawBlockyMountain(canvas.width * 0.25, groundY, canvas.height * 0.45, canvas.width * 0.6, theme.mountain, theme.mountainLight, mtnSnow);
+      drawBlockyMountain(canvas.width * 0.75, groundY, canvas.height * 0.35, canvas.width * 0.5, theme.mountain, theme.mountainLight, mtnSnow);
+      drawBlockyMountain(canvas.width * 0.5, groundY, canvas.height * 0.25, canvas.width * 0.4, theme.mountain, theme.mountainLight, season === 'winter');
+
+      ctx.fillStyle = SEASON_COLORS[season].grass2;
+      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+      ctx.fillStyle = SEASON_COLORS[season].grass1;
+      grassBlades.forEach((b) => {
+        if (b.x < canvas.width) {
+          ctx.fillRect(b.x, groundY - b.height, b.width, b.height);
+        }
+      });
+      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+      drawSprite(ROCK, canvas.width * 0.3, groundY - 15, 4, season);
+      drawSprite(ROCK, canvas.width * 0.65, groundY - 10, 3, season);
+
+      drawSprite(BUSH, canvas.width * 0.2, groundY - (BUSH.length * 6) + 10, 6, season);
+      drawSprite(BUSH, canvas.width * 0.85, groundY - (BUSH.length * 5) + 5, 5, season);
+      drawSprite(BUSH, canvas.width * 0.1, groundY - (BUSH.length * 4) + 15, 4, season);
+
+      if (season === 'spring' || season === 'summer') {
+        grassBlades.forEach((b) => {
+          if (b.isFlower && b.x < canvas.width) drawSprite(FLOWER, b.x, groundY + b.height * 2, 3, season);
+        });
+      }
+
+      drawSprite(TREE, (tree1Pct/100) * canvas.width, groundY - (TREE.length * 8) + 15, 8, season);
+      drawSprite(TREE, (tree2Pct/100) * canvas.width, groundY - (TREE.length * 8) + 15, 8, season);
+
+      if (isNight) {
+        const bonfireSprite = (Math.floor(Date.now() / 150) % 2 === 0) ? BONFIRE_1 : BONFIRE_2;
+        drawSprite(bonfireSprite, (bonfirePct/100)*canvas.width, groundY - (BONFIRE_1.length * 6) + 15, 6, season);
+        
+        ctx.fillStyle = `rgba(230, 126, 34, ${(Math.sin(Date.now()/200) + 1)/8 + 0.1})`;
+        ctx.beginPath();
+        ctx.arc((bonfirePct/100)*canvas.width + 33, groundY - 10, 90, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (weather === 'clear' && (season === 'summer' || season === 'spring')) {
+          fireflies.forEach((fly) => {
+            fly.x += fly.speedX;
+            fly.y += fly.speedY;
+            if (fly.x < 0 || fly.x > canvas.width) fly.speedX *= -1;
+            if (fly.y < groundY - 50 || fly.y > canvas.height) fly.speedY *= -1;
+            fly.phase += 0.05;
+            const glow = (Math.sin(fly.phase) + 1) / 2;
+            ctx.fillStyle = `rgba(241,196,15,${glow})`;
+            ctx.beginPath();
+            ctx.arc(fly.x, fly.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = `rgba(241,196,15,${glow * 0.3})`;
+            ctx.beginPath();
+            ctx.arc(fly.x, fly.y, 8, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+      }
+
+      raccoon.frame++;
+      const spriteWidth = 260;
+      const spriteHeight = 260;
+
+      if (raccoonState === 'walking') {
+        if (raccoon.frame % 15 === 0) raccoon.bounceOffset = raccoon.bounceOffset === 0 ? -25 : 0;
+      } else {
+        if (raccoon.frame % 45 === 0) {
+          if (Math.random() > 0.6) raccoon.flip = !raccoon.flip;
+          raccoon.bounceOffset = raccoon.bounceOffset === 0 ? -10 : 0;
+        }
+      }
+
+      if (raccoonImg.complete && raccoonImg.naturalHeight !== 0 && raccoonScale > 0) {
+        if (raccoonScale > 0.3) {
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
+          ctx.beginPath();
+          ctx.ellipse(raccoonX, groundY, (raccoon.bounceOffset === 0 ? 60 : 40) * raccoonScale, 8 * raccoonScale, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.save();
+        ctx.translate(raccoonX, groundY + raccoon.bounceOffset);
+        
+        ctx.scale(raccoonScale, raccoonScale);
+        
+        if (raccoonState === 'walking') {
+          if (raccoon.bounceOffset !== 0) ctx.scale(0.95, 1.05);
+          else ctx.scale(1.05, 0.95);
+        } else {
+          if (raccoon.bounceOffset !== 0) ctx.scale(1.02, 0.98);
+        }
+        
+        if (raccoon.flip) ctx.scale(-1, 1);
+        ctx.drawImage(raccoonImg, -spriteWidth / 2, -spriteHeight + 110, spriteWidth, spriteHeight);
+        ctx.restore();
+      }
+
+      if (weather === 'rain' || weather === 'storm') {
+        drawRain(groundY, weather === 'storm' ? 1 : 0.6);
+      } else if (weather === 'snow') {
+        drawSnow();
+      }
+
+      if (lightningFlash > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${lightningFlash / 20})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        lightningFlash -= 1;
+      }
+
+      drawWeatherText(weather, themeName, season);
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('resize', resize);
+    window.addEventListener('load', () => {
+      resize();
+      loop();
+    });
+  </script>
+</body>
+</html>
