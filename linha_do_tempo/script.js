@@ -1130,8 +1130,10 @@ function getActiveSeason(date) {
 function getActiveWeather(h, season, date) {
   if (!isAutoWeather) return manualWeatherVal;
   const nowTs = Date.now();
-  if (externalWeather && nowTs - externalWeatherFetchedAt < 5 * 60 * 1000)
-    return externalWeather;
+  const hasLiveExternal = externalWeather && nowTs - externalWeatherFetchedAt < 5 * 60 * 1000;
+  if (hasLiveExternal) return externalWeather;
+  const hasSelectedLocation = externalLat !== null && externalLon !== null;
+  const allowPrecipitation = hasLiveExternal || !hasSelectedLocation;
   const month = date.getMonth() + 1;
   const day = date.getDate();
   const seed = Math.sin(day * 23 + month * 7 + Math.floor(h) * 17) * 10000;
@@ -1141,7 +1143,7 @@ function getActiveWeather(h, season, date) {
   if (season === "spring") rainChance = 0.55;
   if (season === "winter") rainChance = 0.6;
   if (h >= 12 && h < 18) {
-    if (v < rainChance) {
+    if (v < rainChance && allowPrecipitation) {
       if (season === "winter") return "snow";
       return v < rainChance * 0.6 ? "rain" : "storm";
     }
@@ -1149,13 +1151,13 @@ function getActiveWeather(h, season, date) {
   }
   if (h >= 6 && h < 12) {
     if (v < 0.35) {
-      if (season === "winter" && v < 0.15) return "snow";
+      if (season === "winter" && v < 0.15 && allowPrecipitation) return "snow";
       return "cloudy";
     }
     return "clear";
   }
   if (v < 0.4) {
-    if (season === "winter" && v < 0.2) return "snow";
+    if (allowPrecipitation && season === "winter" && v < 0.2) return "snow";
     return "cloudy";
   }
   return "clear";
