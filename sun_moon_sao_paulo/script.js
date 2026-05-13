@@ -129,6 +129,12 @@ const stars = [];
   }
 })();
 
+// Respect reduced motion: scale down star twinkle
+const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reducedMotion) {
+  for (const s of stars) s.sp *= 0.08; // greatly slow twinkle
+}
+
 // ── Mountains ─────────────────────────────────────────────
 const MHORIZON = 130;
 
@@ -315,6 +321,16 @@ const elIllum = document.getElementById("info-illum");
 const elFill = document.getElementById("progress-fill");
 const elLabel = document.getElementById("progress-label");
 const elHint = document.getElementById("scroll-hint");
+const ring = document.getElementById('phase-ring');
+const ringFg = ring && ring.querySelector('.ring-fg');
+
+function setRingProgress(phase) {
+  if (!ringFg) return;
+  // phase is 0..1 -> map to 0..100% of circumference
+  const circ = 2 * Math.PI * 15.5;
+  const dash = Math.max(0, Math.min(1, phase)) * circ;
+  ringFg.style.strokeDashoffset = String((circ - dash).toFixed(2));
+}
 
 function updateHUD(date, illum) {
   const { fraction, phase } = illum;
@@ -361,6 +377,7 @@ function loop() {
 
   // HUD
   updateHUD(date, illum);
+  setRingProgress(phase);
 
   // Scroll hint fade
   if (scrolled && hintOpacity > 0) {
@@ -402,6 +419,26 @@ window.addEventListener(
   },
   { passive: false },
 );
+
+// Pointer drag (desktop) — click+drag up/down to scrub
+let pointerActive = false;
+let pointerPrevY = 0;
+window.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  pointerActive = true;
+  pointerPrevY = e.clientY;
+  // let text selection not interfere
+  e.preventDefault();
+}, { passive: false });
+window.addEventListener('pointermove', (e) => {
+  if (!pointerActive) return;
+  const dy = pointerPrevY - e.clientY;
+  targetDay = Math.max(0, targetDay + dy / 40);
+  pointerPrevY = e.clientY;
+  if (!scrolled) scrolled = true;
+}, { passive: true });
+window.addEventListener('pointerup', () => { pointerActive = false; });
+window.addEventListener('pointercancel', () => { pointerActive = false; });
 
 // Keyboard
 window.addEventListener("keydown", (e) => {

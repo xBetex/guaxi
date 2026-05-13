@@ -73,6 +73,31 @@ body {
     font-weight: 300;
 }
 
+/* Phase ring */
+#phase-ring {
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    width: 56px;
+    height: 56px;
+    pointer-events: none;
+}
+
+.ring-bg {
+    stroke: rgba(255,255,255,0.06);
+}
+
+.ring-fg {
+    stroke: url(#);
+    stroke: linear-gradient(90deg, #a29bfe, #fd79a8);
+    stroke: #a29bfe;
+    transform: rotate(-90deg);
+    transform-origin: 21px 21px;
+    stroke-dasharray: 97.5; /* 2*pi*15.5 */
+    stroke-dashoffset: 97.5;
+    transition: stroke-dashoffset 0.35s ease;
+}
+
 /* ── Progress bar ── */
 #progress-wrap {
     position: absolute;
@@ -138,4 +163,10 @@ body {
     50% {
         transform: translateY(-5px);
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #scroll-hint { display: none; }
+    #phase-ring { transition: none; }
+    #scroll-hint .arrow { animation: none; }
 }

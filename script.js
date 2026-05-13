@@ -1232,6 +1232,16 @@ let weatherAbortController = null;
 
 async function fetchWeatherForCity(city) {
   if (!city || !city.trim()) return;
+  // Clear old values immediately — no fallbacks, show --°C while loading
+  weatherInfo.temp = null;
+  weatherInfo.feelsLike = null;
+  weatherInfo.humidity = null;
+  weatherInfo.windspeed = null;
+  weatherInfo.condition = null;
+  weatherInfo.sunrise = null;
+  weatherInfo.sunset = null;
+  externalWeather = null;
+  externalWeatherFetchedAt = 0;
   isFetchingWeather = true;
   updateWeatherBar();
   try {
@@ -1367,12 +1377,12 @@ async function fetchWeatherForCity(city) {
       externalWeatherFetchedAt = 0;
     }
 
-    // write human-readable fields if available
-    weatherInfo.temp = temp !== null ? temp : weatherInfo.temp;
-    weatherInfo.feelsLike = feels !== null ? feels : weatherInfo.feelsLike;
-    weatherInfo.humidity = hum !== null ? hum : weatherInfo.humidity;
-    weatherInfo.windspeed = wind !== null ? wind : weatherInfo.windspeed;
-    weatherInfo.condition = condLabel || weatherInfo.condition;
+    // write human-readable fields (no fallbacks — null stays null)
+    if (temp !== null) weatherInfo.temp = temp;
+    if (feels !== null) weatherInfo.feelsLike = feels;
+    if (hum !== null) weatherInfo.humidity = hum;
+    if (wind !== null) weatherInfo.windspeed = wind;
+    if (condLabel) weatherInfo.condition = condLabel;
     if (wjson && wjson.daily) {
       weatherInfo.sunrise = (wjson.daily.sunrise[0] || "").split("T")[1] || null;
       weatherInfo.sunset = (wjson.daily.sunset[0] || "").split("T")[1] || null;
