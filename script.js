@@ -1288,10 +1288,12 @@ async function fetchWeatherForCity(city) {
       wind = typeof c.windspeed === "number" ? Math.round(c.windspeed) : null;
       condLabel = weatherCodeToLabel(c.weathercode);
       // attempt to find matching hourly index for additional fields
+      // current_weather.time has minutes (e.g. "2026-05-13T18:15"), hourly times are on the hour
       if (wjson.hourly && Array.isArray(wjson.hourly.time)) {
-        const tIndex = wjson.hourly.time.indexOf(c.time || "");
-        const idx = tIndex >= 0 ? tIndex : wjson.hourly.time.length - 1;
-        if (wjson.hourly.temperature_2m && wjson.hourly.temperature_2m[idx] !== undefined)
+        const matchTime = (c.time || "").substring(0, 13) + ":00";
+        const tIndex = wjson.hourly.time.indexOf(matchTime);
+        const idx = tIndex >= 0 ? tIndex : -1;
+        if (idx >= 0 && wjson.hourly.temperature_2m && wjson.hourly.temperature_2m[idx] !== undefined)
           temp = Math.round(wjson.hourly.temperature_2m[idx]);
         if (
           wjson.hourly.apparent_temperature &&
@@ -1319,9 +1321,11 @@ async function fetchWeatherForCity(city) {
         }
       } catch (e) {}
     } else if (wjson && wjson.hourly) {
-      // fallback to latest hourly sample
+      // fallback to hourly entry nearest current time
       const h = wjson.hourly;
-      const last = h.time && h.time.length ? h.time.length - 1 : 0;
+      const nowStr = new Date().toISOString().substring(0, 13) + ":00";
+      let last = h.time.indexOf(nowStr);
+      if (last < 0) last = h.time.length ? h.time.length - 1 : 0;
       if (h.weathercode && h.weathercode[last] !== undefined)
         cat = weatherCodeToCategory(h.weathercode[last]);
       if (h.temperature_2m && h.temperature_2m[last] !== undefined)
