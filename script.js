@@ -1479,30 +1479,26 @@ function updateWeatherBar() {
   set("wb-cond", weatherInfo.condition || "--");
   set("wb-sunrise", weatherInfo.sunrise || "--:--");
   set("wb-sunset", weatherInfo.sunset || "--:--");
-  // Moon phase (Portuguese name from illumination fraction)
-  let mi = moonData.illumination !== null ? moonData.illumination / 100 : -1;
-  if (mi < 0) {
-    // fallback: use local calculation
-    const localPhase = getMoonPhase();
-    mi = (1 - Math.cos(localPhase * Math.PI * 2)) / 2;
-  }
-  const mn = mi < 0.03 || mi > 0.97 ? "Lua Nova"
-      : mi < 0.24 ? "Crescente"
-      : mi < 0.27 ? "Quarto Crescente"
-      : mi < 0.49 ? "Gibosa Crescente"
-      : mi < 0.51 ? "Lua Cheia"
-      : mi < 0.74 ? "Gibosa Minguante"
-      : mi < 0.77 ? "Quarto Minguante"
+  // Moon phase (name from phase cycle, emoji from illumination)
+  const phase = getMoonPhase(); // 0=new, 0.5=full, 1=new
+  const mn = phase < 0.03 || phase > 0.97 ? "Lua Nova"
+      : phase < 0.24 ? "Crescente"
+      : phase < 0.27 ? "Quarto Crescente"
+      : phase < 0.49 ? "Gibosa Crescente"
+      : phase < 0.51 ? "Lua Cheia"
+      : phase < 0.74 ? "Gibosa Minguante"
+      : phase < 0.77 ? "Quarto Minguante"
       : "Minguante";
-    const me = mi < 0.03 || mi > 0.97 ? "🌑"
-      : mi < 0.25 ? "🌒"
-      : mi < 0.27 ? "🌓"
-      : mi < 0.49 ? "🌔"
+  const mi = moonData.illumination !== null ? moonData.illumination / 100 : (1 - Math.cos(phase * Math.PI * 2)) / 2;
+  const me = mi < 0.03 || mi > 0.97 ? "🌑"
+      : mi < 0.25 ? (phase < 0.5 ? "🌒" : "🌘")
+      : mi < 0.27 ? (phase < 0.5 ? "🌓" : "🌗")
+      : mi < 0.49 ? (phase < 0.5 ? "🌔" : "🌖")
       : mi < 0.51 ? "🌕"
-      : mi < 0.74 ? "🌖"
-      : mi < 0.77 ? "🌗"
-      : "🌘";
-    set("wb-moon", `${me} ${mn}`);
+      : mi < 0.74 ? (phase < 0.5 ? "🌔" : "🌖")
+      : mi < 0.77 ? (phase < 0.5 ? "🌓" : "🌗")
+      : (phase < 0.5 ? "🌒" : "🌘");
+  set("wb-moon", `${me} ${mn}`);
 
   // Weather source/status indicator (inject into wb-city row)
   try {
