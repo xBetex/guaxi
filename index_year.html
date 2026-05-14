@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Guaxinim — Ano</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet" />
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:"Outfit",sans-serif}
+canvas{display:block;width:100vw;height:100vh}
+#weather-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(8,8,18,0.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,0.08);padding:6px 24px 8px;z-index:50;pointer-events:none;color:#fff}
+#wb-city-row{font-size:11px;font-weight:600;letter-spacing:1px;color:rgba(255,255,255,0.55);margin-bottom:4px;text-transform:uppercase}
+#wb-data-row{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.wb-item{display:flex;flex-direction:column;gap:1px;padding:0 18px}
+.wb-item:first-child{padding-left:0}
+.wb-label{font-size:8px;font-weight:600;letter-spacing:1.2px;color:rgba(255,255,255,0.4);text-transform:uppercase;white-space:nowrap}
+.wb-value{font-size:15px;font-weight:400;color:#fff;white-space:nowrap}
+.wb-sep{width:1px;height:28px;background:rgba(255,255,255,0.1);flex-shrink:0}
+#year-ctrl{position:absolute;left:50%;bottom:72px;transform:translateX(-50%);background:rgba(5,10,25,0.75);backdrop-filter:blur(8px);padding:8px 16px;border-radius:14px;display:flex;gap:10px;align-items:center;z-index:60}
+#year-slider{width:340px;accent-color:#a29bfe;cursor:pointer}
+#year-label{font-size:13px;color:rgba(255,255,255,0.8);min-width:160px;text-align:center}
+#play-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:4px 12px;cursor:pointer;font-size:16px;line-height:1;transition:background.15s}
+#play-btn:hover{background:rgba(255,255,255,0.18)}
+#play-btn:active{background:rgba(255,255,255,0.26)}
+@media(max-width:600px){#year-slider{width:200px}#year-ctrl{padding:6px 12px;gap:6px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="weather-bar">
+  <div id="wb-city-row"><span id="wb-city">São Paulo</span></div>
+  <div id="wb-data-row">
+    <div class="wb-item"><span class="wb-label">HORÁRIO</span><span class="wb-value" id="wb-time">--:--</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">TEMPERATURA</span><span class="wb-value" id="wb-temp">--°C</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">SENSAÇÃO</span><span class="wb-value" id="wb-feels">--°C</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">UMIDADE</span><span class="wb-value" id="wb-hum">--%</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">VENTO</span><span class="wb-value" id="wb-wind">-- km/h</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">CONDIÇÃO</span><span class="wb-value" id="wb-cond">--</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">NASCER DO SOL</span><span class="wb-value" id="wb-sunrise">--:--</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">PÔR DO SOL</span><span class="wb-value" id="wb-sunset">--:--</span></div>
+    <div class="wb-sep"></div>
+    <div class="wb-item"><span class="wb-label">FASE DA LUA</span><span class="wb-value" id="wb-moon">🌑</span></div>
+  </div>
+</div>
+<div id="year-ctrl">
+  <div id="year-label"><span id="year-val" style="color:#a29bfe;font-weight:600;">1</span> <span id="month-val" style="color:rgba(255,255,255,0.55);font-size:12px;">Jan</span> <span id="time-val" style="color:rgba(255,255,255,0.45);font-size:12px;">00:00</span></div>
+  <input id="year-slider" type="range" min="0" max="364.99" step="0.01" value="0" />
+  <button id="play-btn" title="Play/Pause">▶</button>
+  <button id="dbg-btn" title="Debug" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-family:monospace" onclick='dbg=!dbg;this.style.color=dbg?"#a29bfe":"rgba(255,255,255,.5)";document.getElementById("dbg-pnl").style.display=dbg?"block":"none"'>dbg</button>
+</div>
+<div id="dbg-pnl" style="display:none;position:absolute;top:12px;left:12px;background:rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;z-index:70;font-family:monospace;font-size:11px;color:rgba(255,255,255,.75);line-height:1.6;pointer-events:none;backdrop-filter:blur(6px);min-width:180px"></div>
+<script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+<script>
+"use strict";
+const C=document.getElementById("c"),ctx=C.getContext("2d");
+let days=0,playing=false,lastT=0,wbTick=0,dbg=0;
+const $={sun:{x:0,y:0,r:0,v:0},moon:{x:0,y:0,r:0,v:0,mh:0,f:0}};
+
+const stars=[];for(let i=200;i--;)stars.push({x:Math.random(),y:Math.random()*.72,r:Math.random()<.08?2:1,p:Math.random()*6.28,sp:.005+Math.random()*.02,b:.4+Math.random()*.5});
+const ss=[];
+
+const SC={summer:{s1:[25,70,170],s2:[100,185,230],s3:[180,220,240],g:[76,175,80],g2:[56,142,60],f:[46,125,50],t:[121,85,72]},
+autumn:{s1:[20,55,140],s2:[120,150,170],s3:[190,185,175],g:[139,165,80],g2:[121,145,60],f:[211,87,29],t:[121,85,72]},
+winter:{s1:[15,40,110],s2:[90,130,165],s3:[170,185,190],g:[150,165,140],g2:[130,145,120],f:[144,164,174],t:[120,110,100]},
+spring:{s1:[30,75,165],s2:[120,190,220],s3:[195,220,230],g:[102,187,106],g2:[76,160,80],f:[56,142,60],t:[121,85,72]}};
+const MO=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function sn(d){return d<80||d>=355?"summer":d<172?"autumn":d<264?"winter":"spring"}
+function dd(v){const d=Math.floor(v),f=v-d,h=Math.floor(f*24),m=Math.floor(((f*24)%1)*60);return{d:Math.min(364,Math.max(0,d)),h:Math.min(23,Math.max(0,h)),m:Math.min(59,Math.max(0,m))}}
+function td(d,h,m){const x=new Date(2025,0,1);x.setDate(x.getDate()+d);x.setHours(h,m,0,0);return x}
+function f2(n){return String(Math.floor(n)).padStart(2,"0")}
+function mp(a,b,t){return a+(b-a)*t}
+function cl(v,l,h){return Math.max(l,Math.min(h,v))}
+function pr(s){return((Math.sin(s*12.9898+78.233)*43758.5453)&0x7fffffff)/0x7fffffff}
+
+// Moon crater texture
+const MT=96,mt=new Uint8ClampedArray(MT*MT);
+(function(){const cr=[
+  {x:.10,y:-.20,r:.30},{x:-.26,y:.14,r:.24},{x:.38,y:-.08,r:.18},
+  {x:.20,y:-.32,r:.15},{x:-.37,y:.26,r:.11},{x:.52,y:.34,r:.10},
+  {x:-.16,y:-.54,r:.08},{x:.20,y:.57,r:.07},{x:-.52,y:-.12,r:.09},
+  {x:.42,y:-.42,r:.07},{x:-.42,y:.44,r:.06},{x:.08,y:.12,r:.16}];
+  const h=MT/2;
+  for(let p=0;p<MT;p++)for(let q=0;q<MT;q++){
+    const dx=(q-h)/h,dy=(p-h)/h;let b=.88;
+    for(const c of cr){const d=Math.hypot(dx-c.x,dy-c.y),t=d/c.r;if(t<1)b-=(1-t*t)*.12;if(t<1.4)b+=Math.exp(-((t-.85)**2)/.02)*.05}
+    b+=Math.sin(dx*5.5+dy*4)*.01+Math.cos(dx*2.5-dy*3.5)*.007;
+    mt[p*MT+q]=Math.max(48,Math.min(247,(b*255)|0));
+  }
+})();
+
+// ── Draw ──
+function sky(h,se){
+  const c=SC[se];let s1,s2,s3,b1,b2,b3;
+  if(h>=5&&h<7){const f=(h-5)/2;
+    s1=[mp(5,c.s1[0],f),mp(5,c.s1[1],f),mp(10,c.s1[2],f)];
+    s2=[mp(50,c.s2[0]*.55,f),mp(30,c.s2[1]*.55,f),mp(20,c.s2[2]*.55,f)];
+    s3=[mp(180,c.s3[0],f),mp(130,c.s3[1],f),mp(70,c.s3[2],f)];
+    b1=s1;b2=[mp(20,c.s2[0]*.4,f),mp(15,c.s2[1]*.4,f),mp(10,c.s2[2]*.4,f)];
+    b3=[mp(60,c.s3[0]*.7,f),mp(40,c.s3[1]*.7,f),mp(20,c.s3[2]*.7,f)];
+  }else if(h>=7&&h<17){
+    s1=c.s1;s2=c.s2.map(v=>v*.55|0);s3=c.s3;
+    b1=c.s1.map(v=>v*.6|0);b2=c.s2.map(v=>v*.4|0);b3=c.s3.map(v=>v*.7|0);
+  }else if(h>=17&&h<19){const f=(h-17)/2;
+    s1=[mp(c.s1[0],5,f),mp(c.s1[1],5,f),mp(c.s1[2],10,f)];
+    s2=[mp(c.s2[0]*.55,30,f),mp(c.s2[1]*.55,15,f),mp(c.s2[2]*.55,10,f)];
+    s3=[mp(c.s3[0],60,f),mp(c.s3[1],30,f),mp(c.s3[2],15,f)];
+    b1=s1;b2=[mp(c.s2[0]*.4,15,f),mp(c.s2[1]*.4,8,f),mp(c.s2[2]*.4,5,f)];
+    b3=[mp(c.s3[0]*.7,40,f),mp(c.s3[1]*.7,20,f),mp(c.s3[2]*.7,10,f)];
+  }else{s1=[2,5,12];s2=[4,10,22];s3=[8,18,36];b1=[1,3,8];b2=[2,6,14];b3=[4,10,20];}
+  const g=ctx.createLinearGradient(0,0,0,C.height*.78);
+  g.addColorStop(0,`rgb(${s1[0]|0},${s1[1]|0},${s1[2]|0})`);
+  g.addColorStop(.35,`rgb(${s2[0]|0},${s2[1]|0},${s2[2]|0})`);
+  g.addColorStop(.7,`rgb(${s3[0]|0},${s3[1]|0},${s3[2]|0})`);
+  g.addColorStop(1,`rgb(${b1[0]|0},${b1[1]|0},${b1[2]|0})`);
+  ctx.fillStyle=g;ctx.fillRect(0,0,C.width,C.height);
+}
+
+function starsFn(h){
+  if(h<6||h>=18){
+    const v=h>=5&&h<7?(h-5)/2:h>=18&&h<20?1-(h-18)/2:1;
+    for(const s of stars){s.p+=s.sp;const a=v*s.b*(.5+.5*Math.sin(s.p));if(a>.05){ctx.fillStyle=`rgba(255,255,255,${a.toFixed(3)})`;if(s.r>1.5){ctx.beginPath();ctx.arc(s.x*C.width,s.y*C.height,s.r,0,6.28);ctx.fill()}else ctx.fillRect(s.x*C.width,s.y*C.height,2,2)}}
+    if(Math.random()<.004)ss.push({x:Math.random()*C.width,y:0,len:20+Math.random()*50,spd:4+Math.random()*5});
+    for(let i=ss.length;i--;){const s=ss[i];ctx.strokeStyle="rgba(255,255,255,.6)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-s.len,s.y-s.len);ctx.stroke();s.x+=s.spd*.4;s.y+=s.spd*.4;if(s.y>C.height*.7)ss.splice(i,1)}
+  }
+}
+
+function sun(h){
+  if(h<6||h>=18){$.sun.v=0;return}
+  const cp=cl((h-6)/12,0,1),a=cp*Math.PI;
+  const cx=C.width*(.02+.96*cp),r=Math.min(C.width,C.height)*.13;
+  const cy=C.height*.40-Math.sin(a)*C.height*.22;
+  const vis=h>=6&&h<7?(h-6):h>=17&&h<18?(18-h):1;
+  Object.assign($.sun,{x:cx|0,y:cy|0,r:r|0,v:1});
+  ctx.save();ctx.globalAlpha=vis;
+  ctx.save();ctx.translate(cx,cy);
+  for(let i=12;i--;){const a2=(i/12)*6.28+cp*.3,l=r*(1.2+Math.sin(a2*3+h)*.3);ctx.fillStyle=`rgba(255,220,150,${(.015+Math.sin(a2*4+h*2)*.008).toFixed(4)})`;ctx.beginPath();ctx.arc(Math.cos(a2)*l*.5,Math.sin(a2)*l*.5,l*.5,0,6.28);ctx.fill()}
+  ctx.restore();
+  for(let i=4;i--;){const gr=ctx.createRadialGradient(cx,cy,0,cx,cy,r*(1+i*.5));gr.addColorStop(0,`rgba(255,230,180,${(.08/(i+1)).toFixed(3)})`);gr.addColorStop(1,"rgba(255,200,100,0)");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(cx,cy,r*(1+i*.5),0,6.28);ctx.fill()}
+  const sg=ctx.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
+  sg.addColorStop(0,"#fff8ec");sg.addColorStop(.4,"#ffe482");sg.addColorStop(.8,"#ffb347");sg.addColorStop(1,"#e8831a");
+  ctx.fillStyle=sg;ctx.beginPath();ctx.arc(cx,cy,r,0,6.28);ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,.6)";ctx.beginPath();ctx.arc(cx-r*.15,cy-r*.15,r*.4,0,6.28);ctx.fill();
+  ctx.restore();
+}
+
+function moon(h,f,ph){
+  if(h>=6&&h<18){$.moon.v=0;return}
+  const off=f*12,mh=(h+off)%24,cp=cl((mh-6<0?mh+6:mh-6)/12,0,1),a=cp*Math.PI;
+  const cx=C.width*(.02+.96*cp),r=Math.min(C.width,C.height)*.13;
+  const cy=C.height*.38-Math.sin(a)*C.height*.16;
+  const vis=h>=18&&h<19?(h-18):h>=5&&h<6?(6-h):1;
+  Object.assign($.moon,{x:cx|0,y:cy|0,r:r|0,v:1,mh:mh|0,f:+f.toFixed(2)});
+  ctx.save();ctx.globalAlpha=vis;
+  for(let i=3;i--;){const hr=ctx.createRadialGradient(cx,cy,0,cx,cy,r*(1.5+i*.8));hr.addColorStop(0,`rgba(180,165,140,${(f*.04/(i+1)).toFixed(4)})`);hr.addColorStop(1,"rgba(150,140,120,0)");ctx.fillStyle=hr;ctx.beginPath();ctx.arc(cx,cy,r*(1.5+i*.8),0,6.28);ctx.fill()}
+  const dg=ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
+  dg.addColorStop(0,"#2e2e48");dg.addColorStop(.6,"#1c1c30");dg.addColorStop(1,"#0e0e18");
+  ctx.beginPath();ctx.arc(cx,cy,r,0,6.28);ctx.fillStyle=dg;ctx.fill();
+  ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,6.28);ctx.clip();
+  const sh=r*(1-2*f);
+  const lg=ctx.createRadialGradient(cx+sh-r*.2,cy-r*.2,0,cx+sh,cy,r);
+  lg.addColorStop(0,"#f5eedb");lg.addColorStop(.6,"#e3d8be");lg.addColorStop(1,"#cdbfa2");
+  ctx.beginPath();ctx.arc(cx+sh,cy,r,0,6.28);ctx.fillStyle=lg;ctx.fill();
+  const ts=r/(MT/2);
+  for(let p=0;p<MT;p+=3)for(let q=0;q<MT;q+=3){
+    const dx=(q-MT/2)*ts,dy=(p-MT/2)*ts;
+    if(dx*dx+dy*dy>r*r)continue;
+    const lit=ph<.5?dx<=(2*f-1)*Math.sqrt(Math.max(0,1-(dy/r)**2))*r:dx>=(1-2*f)*Math.sqrt(Math.max(0,1-(dy/r)**2))*r;
+    if(!lit)continue;const v=mt[p*MT+q],a2=((v-130)/180)*.18;if(a2>0){ctx.fillStyle=`rgba(0,0,0,${a2.toFixed(3)})`;ctx.fillRect(cx+dx-2,cy+dy-2,5,5)}
+  }
+  ctx.restore();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,6.28);ctx.strokeStyle="rgba(255,255,255,.03)";ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+function mtns(h,se){
+  const c=SC[se],night=h<6||h>=18,gy=C.height*.78;
+  const L=[
+    {c:night?"#0a1525":`rgb(${c.s1[0]-5},${c.s1[1]-5},${c.s1[2]-5})`,h:.22,cnt:9},
+    {c:night?"#152238":`rgb(${c.s1[0]},${c.s1[1]},${c.s1[2]})`,h:.17,cnt:7},
+    {c:night?"#1e3050":`rgb(${c.s2[0]-10},${c.s2[1]-10},${c.s2[2]-10})`,h:.13,cnt:6},
+    {c:night?"#2a3f60":`rgb(${c.s2[0]+10},${c.s2[1]+10},${c.s2[2]+10})`,h:.09,cnt:5},
+  ];
+  for(const l of L){ctx.fillStyle=l.c;ctx.beginPath();ctx.moveTo(0,gy);for(let i=0;i<=l.cnt;i++){const x=(i/l.cnt)*C.width,b=gy-l.h*C.height,n=Math.sin(i*2.3+1.7)*.35+Math.sin(i*4.7+.9)*.2;ctx.lineTo(x,b+n*l.h*C.height)}ctx.lineTo(C.width,gy);ctx.closePath();ctx.fill()}
+  if(se==="winter"){ctx.fillStyle="rgba(220,230,240,.15)";ctx.beginPath();ctx.moveTo(0,gy);for(let i=0;i<=5;i++){const x=(i/5)*C.width;ctx.lineTo(x,gy-C.height*(.15+Math.sin(i*3.1+.5)*.04))}ctx.lineTo(C.width,gy);ctx.closePath();ctx.fill()}
+}
+
+function ground(se){
+  const c=SC[se],gy=C.height*.78;
+  const g=ctx.createLinearGradient(0,gy,0,C.height);
+  g.addColorStop(0,`rgb(${c.g[0]},${c.g[1]},${c.g[2]})`);g.addColorStop(1,`rgb(${c.g2[0]},${c.g2[1]},${c.g2[2]})`);
+  ctx.fillStyle=g;ctx.fillRect(0,gy,C.width,C.height-gy);
+}
+
+function tree(cx,cy,se,sc,big){
+  const c=SC[se],tw=8*sc,th=50*sc,fr=big?55*sc:35*sc;
+  ctx.fillStyle="rgba(0,0,0,.12)";ctx.beginPath();ctx.ellipse(cx,cy+2,fr*.8,6*sc,0,0,6.28);ctx.fill();
+  ctx.fillStyle=`rgb(${c.t[0]},${c.t[1]},${c.t[2]})`;ctx.fillRect(cx-tw/2,cy-th,tw,th);
+  if(se==="winter"){ctx.strokeStyle=`rgb(${c.t[0]},${c.t[1]},${c.t[2]})`;ctx.lineWidth=2*sc;for(let i=0;i<4;i++){const a=-.8+i*.5;ctx.beginPath();ctx.moveTo(cx,cy-th*.5);ctx.lineTo(cx+Math.cos(a)*fr*.6,cy-th*.5+Math.sin(a)*fr*.6);ctx.stroke()}}
+  if(se!=="winter"){const fc=`rgb(${c.f[0]},${c.f[1]},${c.f[2]})`;ctx.fillStyle=fc;ctx.beginPath();ctx.arc(cx,cy-th-fr*.3,fr,0,6.28);ctx.fill();ctx.fillStyle="rgba(255,255,255,.06)";ctx.beginPath();ctx.arc(cx-fr*.2,cy-th-fr*.5,fr*.5,0,6.28);ctx.fill()}
+}
+
+function srss(d){const dl=12-1.5*Math.sin(6.283*(d-80)/365);return{sr:12-dl/2,ss:12+dl/2}}
+
+// ── Weather bar ──
+const wb={tm:document.getElementById("wb-time"),tp:document.getElementById("wb-temp"),fl:document.getElementById("wb-feels"),hm:document.getElementById("wb-hum"),wn:document.getElementById("wb-wind"),cd:document.getElementById("wb-cond"),sr:document.getElementById("wb-sunrise"),ss:document.getElementById("wb-sunset"),mn:document.getElementById("wb-moon")};
+
+function wbUp(se,dy,hr,min,emo){
+  wb.tm.textContent=`${f2(hr)}:${f2(min)}`;
+  const t={summer:28,autumn:22,winter:18,spring:24},h={summer:65,autumn:75,winter:80,spring:70},wk={summer:12,autumn:15,winter:18,spring:10};
+  const di=Math.sin((hr-6)/12*Math.PI),bt=t[se]||24,temp=Math.round(bt+di*4),sd=dy+hr/24+min/1440;
+  wb.tp.textContent=`${temp}°C`;wb.fl.textContent=`${Math.round(temp+(pr(sd)-.5)*3)}°C`;
+  wb.hm.textContent=`${Math.round(h[se]+(pr(sd+1)-.5)*10)}%`;wb.wn.textContent=`${Math.round(wk[se]+pr(sd+2)*8)} km/h`;
+  wb.cd.textContent=({summer:"Céu limpo",autumn:"Parc. nublado",winter:"Nublado",spring:"Céu limpo"})[se]||"Céu limpo";
+  const{sr,ss}=srss(dy);wb.sr.textContent=`${f2(Math.floor(sr))}:${f2(Math.round((sr%1)*60))}`;wb.ss.textContent=`${f2(Math.floor(ss))}:${f2(Math.round((ss%1)*60))}`;wb.mn.textContent=emo;
+}
+
+// ── Loop ──
+function rs(){C.width=innerWidth;C.height=innerHeight}
+addEventListener("resize",rs);rs();
+
+let emo="🌑";
+const eY=document.getElementById("year-val"),eM=document.getElementById("month-val"),eT=document.getElementById("time-val");
+
+function lb(d,h,m){const x=new Date(2025,0,1);x.setDate(x.getDate()+d);eY.textContent=`${x.getDate()}`;eM.textContent=MO[x.getMonth()];eT.textContent=`${f2(h)}:${f2(m)}`}
+
+function loop(t){
+  requestAnimationFrame(loop);
+  if(!lastT)lastT=t;
+  const dt=(t-lastT)/1e3;lastT=t;
+  if(playing){days+=.005*(dt/.2);if(days>364.99){days=0}slider.value=String(days)}
+  const{d:dy,h:hr,m:mn}=dd(days);
+  const se=sn(dy),d2=td(dy,hr,mn),{fraction:f,phase:ph}=SunCalc.getMoonIllumination(d2);
+  
+  sky(hr,se);starsFn(hr);sun(hr);moon(hr,f,ph);
+  const pn=f<.03||f>.97?"Lua Nova":f<.24?"Crescente":f<.27?"Quarto Crescente":f<.49?"Gibosa Crescente":f<.51?"Lua Cheia":f<.74?"Gibosa Minguante":f<.77?"Quarto Minguante":"Minguante";
+  const pe=f<.03||f>.97?"🌑":f<.25?"🌒":f<.27?"🌓":f<.49?"🌔":f<.51?"🌕":f<.74?"🌖":f<.77?"🌗":"🌘";
+  emo=`${pe} ${pn}`;
+  mtns(hr,se);ground(se);
+  const gy=C.height*.78,sc=Math.min(C.width,C.height)/800;
+  tree(C.width*.15,gy,se,sc,0);tree(C.width*.5,gy,se,sc*1.4,1);tree(C.width*.82,gy,se,sc,0);
+  lb(dy,hr,mn);
+  wbTick++;if(wbTick%30===0)wbUp(se,dy,hr,mn,emo);
+  if(dbg){const p=document.getElementById("dbg-pnl");if(p)setTimeout(()=>{const s=$.sun,m=$.moon;p.innerHTML=
+    `d:${dy} h:${f2(hr)}:${f2(mn)} ${se}<br>`+
+    `☀️ ${s.v?`x${s.x} y${s.y} r${s.r}`:`⬇`}<br>`+
+    `🌙 ${m.v?`x${m.x} y${m.y} r${m.r} mh${m.mh} f${m.f}`:`⬇`}<br>`+
+    `${C.width}×${C.height}`;},50)}
+}
+
+const slider=document.getElementById("year-slider"),playBtn=document.getElementById("play-btn");
+slider.addEventListener("input",e=>{const n=Number(e.target.value);if(!Number.isNaN(n))days=Math.max(0,Math.min(364.99,n))});
+slider.value=String(0);lastT=0;
+playBtn.addEventListener("click",()=>{playing=!playing;playBtn.textContent=playing?"⏸":"▶"});
+addEventListener("keydown",e=>{if(e.key==="ArrowRight"||e.key==="ArrowDown"){days=Math.min(364.99,days+.05);slider.value=String(days)}else if(e.key==="ArrowLeft"||e.key==="ArrowUp"){days=Math.max(0,days-.05);slider.value=String(days)}else if(e.key===" "||e.key==="Space"){e.preventDefault();playBtn.click()}});
+
+loop();
+</script>
+</body>
+</html>
