@@ -1479,9 +1479,26 @@ function updateWeatherBar() {
   set("wb-cond", weatherInfo.condition || "--");
   set("wb-sunrise", weatherInfo.sunrise || "--:--");
   set("wb-sunset", weatherInfo.sunset || "--:--");
-  // Moon phase
-  if (moonData.phase) {
-    set("wb-moon", `${moonData.emoji || ""} ${moonData.phase}`);
+  // Moon phase (Portuguese name from illumination fraction)
+  const mi = moonData.illumination !== null ? moonData.illumination / 100 : -1;
+  if (mi >= 0) {
+    const mn = mi < 0.03 || mi > 0.97 ? "Lua Nova"
+      : mi < 0.24 ? "Crescente"
+      : mi < 0.27 ? "Quarto Crescente"
+      : mi < 0.49 ? "Gibosa Crescente"
+      : mi < 0.51 ? "Lua Cheia"
+      : mi < 0.74 ? "Gibosa Minguante"
+      : mi < 0.77 ? "Quarto Minguante"
+      : "Minguante";
+    const me = mi < 0.03 || mi > 0.97 ? "🌑"
+      : mi < 0.25 ? "🌒"
+      : mi < 0.27 ? "🌓"
+      : mi < 0.49 ? "🌔"
+      : mi < 0.51 ? "🌕"
+      : mi < 0.74 ? "🌖"
+      : mi < 0.77 ? "🌗"
+      : "🌘";
+    set("wb-moon", `${me} ${mn}`);
   }
 
   // Weather source/status indicator (inject into wb-city row)
