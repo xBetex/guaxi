@@ -119,7 +119,7 @@ if (overrideTime)
     // When switching to automatic time, refresh location info so we can
     // compute the city's local hour immediately.
     if (isAutoTime) {
-      if (currentCity && currentCity.trim()) fetchWeatherForCity(currentCity.trim());
+      if (currentCity && currentCity.trim()) { fetchMoonPhase(); fetchWeatherForCity(currentCity.trim()); }
       // update displayed time right away
       updateTimeDisplay(getActiveTime());
     }
@@ -143,7 +143,7 @@ if (overrideWeather)
   overrideWeather.addEventListener("change", (e) => {
     isAutoWeather = !e.target.checked;
     weatherSelect.classList.toggle("hidden", isAutoWeather);
-    if (isAutoWeather) fetchWeatherForCity(currentCity);
+    if (isAutoWeather) { fetchMoonPhase(); fetchWeatherForCity(currentCity); }
   });
 if (weatherSelect)
   weatherSelect.addEventListener("change", (e) => {
@@ -390,7 +390,7 @@ if (cityInput) {
       if (_cityFetchDebounce) clearTimeout(_cityFetchDebounce);
       _cityFetchDebounce = setTimeout(() => {
         const val = currentCity ? currentCity.trim() : "";
-        if (val) fetchWeatherForCity(val);
+        if (val) { fetchMoonPhase(); fetchWeatherForCity(val); }
       }, 700);
     }
   });
@@ -404,6 +404,7 @@ if (cityUpdateBtn)
     cityUpdateBtn.innerText = "⏳";
     cityUpdateBtn.disabled = true;
     updateWeatherBar();
+    fetchMoonPhase(); // refresh moon API data alongside weather
     fetchWeatherForCity(currentCity).finally(() => {
       cityUpdateBtn.innerText = "🔍";
       cityUpdateBtn.disabled = false;
