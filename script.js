@@ -1480,9 +1480,13 @@ function updateWeatherBar() {
   set("wb-sunrise", weatherInfo.sunrise || "--:--");
   set("wb-sunset", weatherInfo.sunset || "--:--");
   // Moon phase (Portuguese name from illumination fraction)
-  const mi = moonData.illumination !== null ? moonData.illumination / 100 : -1;
-  if (mi >= 0) {
-    const mn = mi < 0.03 || mi > 0.97 ? "Lua Nova"
+  let mi = moonData.illumination !== null ? moonData.illumination / 100 : -1;
+  if (mi < 0) {
+    // fallback: use local calculation
+    const localPhase = getMoonPhase();
+    mi = (1 - Math.cos(localPhase * Math.PI * 2)) / 2;
+  }
+  const mn = mi < 0.03 || mi > 0.97 ? "Lua Nova"
       : mi < 0.24 ? "Crescente"
       : mi < 0.27 ? "Quarto Crescente"
       : mi < 0.49 ? "Gibosa Crescente"
@@ -1499,7 +1503,6 @@ function updateWeatherBar() {
       : mi < 0.77 ? "🌗"
       : "🌘";
     set("wb-moon", `${me} ${mn}`);
-  }
 
   // Weather source/status indicator (inject into wb-city row)
   try {
