@@ -1002,13 +1002,13 @@ function drawMoonPhase(cx, cy, r, targetCtx = ctx) {
   let illum, waxing;
   if (moonData.illumination !== null) {
     illum = moonData.illumination / 100; // 0–1
-    const p = (moonData.phase || "").toLowerCase();
-    waxing = !(p.includes("waning") || p.includes("third")); // false = lit-left
   } else {
     const localPhase = getMoonPhase(); // 0=new … 1=new
     illum = (1 - Math.cos(localPhase * Math.PI * 2)) / 2;
-    waxing = localPhase <= 0.5;
   }
+  // Always use local phase for waxing (API phase name may be in any language)
+  const localPhase = getMoonPhase();
+  waxing = localPhase <= 0.5;
 
   // terminator x-scale:
   //   +1 → new moon  (dark covers the lit sliver)
