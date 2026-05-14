@@ -968,6 +968,25 @@ async function fetchMoonPhase() {
     }
   } catch (e) {
     console.warn("Moon Phase API unavailable — using local Meeus calculation");
+    const localPhase = getMoonPhase(); // 0..1
+    const pn = localPhase < 0.03 || localPhase > 0.97 ? "Lua Nova"
+      : localPhase < 0.24 ? "Crescente"
+      : localPhase < 0.27 ? "Quarto Crescente"
+      : localPhase < 0.49 ? "Gibosa Crescente"
+      : localPhase < 0.51 ? "Lua Cheia"
+      : localPhase < 0.74 ? "Gibosa Minguante"
+      : localPhase < 0.77 ? "Quarto Minguante"
+      : "Minguante";
+    const pe = localPhase < 0.03 || localPhase > 0.97 ? "🌑"
+      : localPhase < 0.25 ? "🌒"
+      : localPhase < 0.27 ? "🌓"
+      : localPhase < 0.49 ? "🌔"
+      : localPhase < 0.51 ? "🌕"
+      : localPhase < 0.74 ? "🌖"
+      : localPhase < 0.77 ? "🌗"
+      : "🌘";
+    moonData = { phase: pn, illumination: localPhase * 100, emoji: pe };
+    moonFetchedAt = Date.now();
   }
 }
 
