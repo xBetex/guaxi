@@ -36,6 +36,10 @@ let lightningFlash = 0;
 let raccoon = { bounceOffset: 0, flip: false, frame: 0 };
 let centerTreeUsingSheetTop = false;
 let isFetchingWeather = false; // true while a network fetch is in-flight
+let lastWeatherSync = null; // HH:MM of last successful weather fetch
+function updateWeatherSyncTime() {
+  lastWeatherSync = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
 let _cityFetchDebounce = null;
 let externalLat = null;
 let externalLon = null;
@@ -994,7 +998,7 @@ async function fetchMoonPhase() {
 // Local fallback: Jean Meeus algorithm (accurate to ~1 day)
 // Pixelate helper for celestial bodies
 function drawPixelatedCelestial(drawFn, cx, cy, r) {
-  const low = 16; // low-res buffer size (ultra chunky pixels)
+  const low = 32; // larger buffer for bigger celestial bodies
   _celestialCanvas.width = low;
   _celestialCanvas.height = low;
   const g = _celestialCtx;
@@ -1507,11 +1511,14 @@ function updateWeatherBar() {
       badge.style.fontSize = "11px";
       badge.style.opacity = "0.7";
       if (isFetchingWeather) {
-        badge.innerText = "(carregando...)";
-      } else if (externalWeather && Date.now() - externalWeatherFetchedAt < 5 * 60 * 1000) {
-        badge.innerText = "(ao vivo)";
+        badge.innerText = "(sincronizando...)";
+        badge.style.color = "#f1c40f";
+      } else if (externalWeather && (Date.now() - externalWeatherFetchedAt < 30 * 60 * 1000)) {
+        badge.innerText = "(sincronizado \u2022 " + (lastWeatherSync || "--:--") + ")";
+        badge.style.color = "#2ecc71";
       } else {
-        badge.innerText = "(local)"; // deterministic/local fallback
+        badge.innerText = "(modo simula\u00e7\u00e3o)";
+        badge.style.color = "#a29bfe";
       }
       // timezone label (replace existing to avoid duplicates)
       try {
@@ -1660,7 +1667,7 @@ function loop() {
   }
 
   // ── 4. Sun or Moon ──────────────────────────────────────────
-  const celestialR = Math.min(canvas.width, canvas.height) * 0.085;
+  const celestialR = Math.min(canvas.width, canvas.height) * 0.15;
   if (!isNight) {
     const tp = (h - 6) / 12;
     const sunCx = canvas.width * 0.1 + canvas.width * 0.8 * tp;
@@ -2169,8 +2176,19 @@ window.addEventListener("load", () => {
   resize();
   loadAllSettings();
   loadTreeImages();
-  fetchWeatherForCity(currentCity);
-  fetchMoonPhase();
-  setInterval(fetchMoonPhase, 6 * 60 * 60 * 1000); // refresh every 6 h
+
+  const syncAll = () => {
+    fetchWeatherForCity(currentCity).then(() => {
+      updateWeatherSyncTime();
+      updateWeatherBar();
+    });
+    fetchMoonPhase();
+  };
+
+  syncAll(); // initial sync on load
+
+  // Auto-refresh every 15 min to keep simulation matching real life
+  setInterval(syncAll, 15 * 60 * 1000);
+
   loop();
 });
