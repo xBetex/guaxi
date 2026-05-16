@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+crash.log
+test_frame.png
+moon_stars.md
+celestial_backup.py
+celestial_deep_seek*
+landscape_update.py
+weather_cli.ps1
+run.ps1
+sprites/trees_2.png
+sprites/trees_pixel.png
