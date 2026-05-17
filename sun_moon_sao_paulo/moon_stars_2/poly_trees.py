@@ -74,14 +74,34 @@ def _draw_trunk(surf, cx, base_y, size, pal, rng, detail):
     trunk_w = max(2, int(size * 0.09))
     top_y   = base_y - trunk_h
 
-    pygame.draw.rect(surf, pal[3],
-                     (cx - trunk_w//2, top_y, trunk_w, trunk_h))
+    segments = max(2, trunk_h // 8)
+    seg_h = trunk_h / segments
+    
+    pts_l, pts_r, pts_mid = [], [], []
+    twist_seed = rng.uniform(0, 100)
+    for i in range(segments + 1):
+        y = base_y - i * seg_h
+        frac = i / segments
+        twist = math.sin(frac * 4.0 + twist_seed) * size * 0.02
+        w = trunk_w * (1.0 - frac * 0.2)
+        pts_l.append((cx + twist - w/2, y))
+        pts_mid.append((cx + twist, y))
+        pts_r.append((cx + twist + w/2, y))
+        
+    _poly(surf, pal[3], pts_l + pts_r[::-1])
 
     if detail < 1:
         return top_y
 
-    pygame.draw.rect(surf, pal[4],
-                     (cx, top_y, max(1, trunk_w//2), trunk_h))
+    _poly(surf, pal[4], pts_mid + pts_r[::-1])
+    
+    # Ground integration
+    for _ in range(max(2, int(size / 15))):
+        gx = cx + rng.uniform(-size*0.12, size*0.12)
+        gy = base_y + rng.uniform(-2, 4)
+        gw = rng.uniform(2, size*0.06)
+        gh = rng.uniform(1, size*0.03)
+        _elli(surf, pal[0], gx, gy, gw, gh)
 
     if detail >= 2:
         stripe_w = max(1, trunk_w // 6)
@@ -115,26 +135,32 @@ def _draw_conifer(surf, cx, base_y, size, pal, rng, detail, season):
         base_frac = min((i + 1.15) / layers, 1.0)
         t_y    = top_y - ch * (1.0 - tip_frac)
         b_y    = top_y - ch * (1.0 - base_frac)
-        hw     = size * (0.12 + 0.46 * prog)
-        jit    = hw * 0.03 * detail
+        
+        # Stronger silhouette asymmetry
+        left_scale = rng.uniform(0.75, 1.15)
+        right_scale = rng.uniform(0.75, 1.15)
+        base_hw = size * (0.08 + 0.34 * prog)
+        l_hw = base_hw * left_scale
+        r_hw = base_hw * right_scale
+        jit = base_hw * 0.03 * detail
 
         shadow_pts = _jitter_pts(
-            [(cx+lean, t_y), (cx-hw+lean*.3, b_y), (cx+lean, b_y)], rng, jit)
+            [(cx+lean, t_y), (cx-l_hw+lean*.3, b_y), (cx+lean, b_y)], rng, jit)
         _poly(surf, _lerp(pal[0], pal[1], 1-prog*0.5), shadow_pts)
 
         light_pts = _jitter_pts(
-            [(cx+lean, t_y), (cx+lean, b_y), (cx+hw+lean*.3, b_y)], rng, jit)
+            [(cx+lean, t_y), (cx+lean, b_y), (cx+r_hw+lean*.3, b_y)], rng, jit)
         _poly(surf, _lerp(pal[1], pal[2], 1-prog*0.45), light_pts)
 
-        if detail >= 2 and hw > 20 and i == layers-1:
+        if detail >= 2 and base_hw > 20 and i == layers-1:
             sliver_pts = _jitter_pts(
                 [(cx+lean, t_y),
                  (cx+lean, t_y + (b_y-t_y)*0.45),
-                 (cx+hw*.38+lean*.3, t_y + (b_y-t_y)*0.55)], rng, jit*0.5)
+                 (cx+r_hw*.38+lean*.3, t_y + (b_y-t_y)*0.55)], rng, jit*0.5)
             _poly(surf, _lerp(pal[2], (255,255,255), 0.12), sliver_pts)
 
         if season == "winter" and i < 1 and size > 60:
-            sw = hw * 0.38
+            sw = base_hw * 0.38
             snow_pts = _jitter_pts(
                 [(cx+lean, t_y),
                  (cx-sw+lean*.3, t_y+(b_y-t_y)*0.38),
@@ -147,7 +173,15 @@ def _draw_conifer(surf, cx, base_y, size, pal, rng, detail, season):
 # ─────────────────────────────────────────────────────────────────────────────
 def _draw_deciduous(surf, cx, base_y, size, pal, rng, detail, season):
     top_y  = _draw_trunk(surf, cx, base_y, size, pal, rng, detail)
-    cr     = size * 0.40
+    
+    cr = size * 0.40
+    if season == "summer":
+        cr = size * 0.48
+    elif season == "spring":
+        cr = size * 0.42
+    elif season == "autumn":
+        cr = size * 0.38
+        
     ccy    = top_y - cr * 0.52
 
     if season == "winter":
@@ -171,7 +205,7 @@ def _draw_deciduous(surf, cx, base_y, size, pal, rng, detail, season):
 
     for b in range(n):
         a  = (b/n)*math.tau + rng.uniform(-0.25, 0.25)
-        d  = rng.uniform(cr*0.05, cr*0.42)
+        d  = rng.uniform(cr*0.02, cr*0.62)
         bw = cr * rng.uniform(0.58, 0.95)
         bh = bw * rng.uniform(0.72, 0.92)
         jit = bw * 0.04 * detail
@@ -298,17 +332,23 @@ def _draw_sakura(surf, cx, base_y, size, pal, rng, detail, season):
     trunk_w = max(2, int(size * 0.065))
     top_y = base_y - trunk_h
 
-    pygame.draw.rect(surf, pal[3], (cx - trunk_w//2, top_y, trunk_w, trunk_h))
-    pygame.draw.rect(surf, pal[4], (cx, top_y, max(1, trunk_w//2), trunk_h))
-
-    if detail >= 2:
-        stripe_w = max(1, trunk_w // 4)
-        for _ in range(2):
-            sx = cx - trunk_w//2 + rng.randint(0, max(1, trunk_w - stripe_w))
-            sh = rng.randint(trunk_h//3, trunk_h)
-            sy = top_y + rng.randint(0, trunk_h - sh)
-            sc = _lerp(pal[3], (20, 15, 10), 0.15)
-            pygame.draw.rect(surf, sc, (sx, sy, stripe_w, sh))
+    # Sweeping curved trunk
+    segments = max(2, trunk_h // 8)
+    seg_h = trunk_h / segments
+    pts_l, pts_r, pts_mid = [], [], []
+    twist_seed = rng.uniform(0, 100)
+    for i in range(segments + 1):
+        y = base_y - i * seg_h
+        frac = i / segments
+        twist = math.sin(frac * 3.0 + twist_seed) * size * 0.03 + (frac * size * 0.05) # slight lean right
+        w = trunk_w * (1.0 - frac * 0.2)
+        pts_l.append((cx + twist - w/2, y))
+        pts_mid.append((cx + twist, y))
+        pts_r.append((cx + twist + w/2, y))
+        
+    _poly(surf, pal[3], pts_l + pts_r[::-1])
+    if detail >= 1:
+        _poly(surf, pal[4], pts_mid + pts_r[::-1])
 
     cr = size * 0.42
     ccy = top_y - cr * 0.45
@@ -320,21 +360,33 @@ def _draw_sakura(surf, cx, base_y, size, pal, rng, detail, season):
 
     n = max(5, int(size / 14))
     for b in range(n):
+        # Sweeping angles
         angle = (b / n) * math.tau + rng.uniform(-0.3, 0.3)
         dist = rng.uniform(0, cr * 0.45)
-        bw = cr * rng.uniform(0.45, 0.75)
-        bh = bw * rng.uniform(0.75, 1.1)
-        ox = cx + math.cos(angle) * dist + rng.uniform(-jit, jit)
+        # Make them longer horizontally for wind-swept look
+        bw = cr * rng.uniform(0.65, 1.2)
+        bh = bw * rng.uniform(0.45, 0.7)
+        ox = cx + math.cos(angle) * dist + rng.uniform(-jit, jit) + (cr * 0.2) # push right
         oy = ccy + math.sin(angle) * dist * 0.65 + rng.uniform(-jit, jit)
         col = pink_light if b % 3 == 0 else (pink_mid if b % 2 == 0 else pink_dark)
         _elli(surf, col, ox, oy, bw, bh)
 
     if detail >= 2:
         for _ in range(max(2, int(size / 22))):
-            px = cx + rng.randint(-int(cr * 0.45), int(cr * 0.45))
+            px = cx + rng.randint(-int(cr * 0.25), int(cr * 0.65))
             py = ccy + rng.randint(-int(cr * 0.35), int(cr * 0.2))
             pygame.draw.circle(surf, (255, 255, 255),
                                (px + rng.randint(-1, 1), py), max(1, int(size * 0.022)))
+
+    # Drifting blossom particles!
+    if detail >= 1:
+        for _ in range(max(5, int(size / 5))):
+            px = cx + rng.uniform(0, cr * 1.8) # drift to the right
+            py = ccy + rng.uniform(-cr * 0.5, cr * 1.2) # drift down/across
+            particle_sz = max(1, int(size * rng.uniform(0.01, 0.025)))
+            # Add a slight transparency for depth
+            col = pink_light if rng.random() > 0.5 else pink_mid
+            pygame.draw.circle(surf, col, (int(px), int(py)), particle_sz)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

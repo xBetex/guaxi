@@ -7,6 +7,7 @@ from tree_sheet import TreeSheet, SEASONS
 from cityscape import build_city, draw_city_layer, draw_streetlights, draw_road
 from trees import draw_trees
 
+
 _tree_sheet = None
 _city_data = None
 
@@ -186,3 +187,4 @@ def draw_landscape(screen, w, h, season, hour, day, weather=None):
 
     draw_trees(screen, w, h, ground_y, season, day,
                base_scale, weather)
+

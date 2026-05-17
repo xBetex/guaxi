@@ -4,7 +4,7 @@ import traceback
 import unicodedata
 from datetime import datetime, timedelta, timezone
 import pygame
-from celestial import draw_sun, draw_moon, generate_stars, update_shooting_stars, draw_stars, compute_moon_phase, get_phase_name
+from celestial import draw_sun, draw_moon, generate_stars, update_shooting_stars, draw_stars, draw_aurora, compute_moon_phase, get_phase_name
 from landscape import draw_sky, draw_landscape
 from controls import Slider, Button, draw_debug_overlay, draw_panel, draw_help, draw_test_menu
 from data import get_season, get_month_name
@@ -12,6 +12,7 @@ from sprites import Gfx
 from calendar_ui import Calendar
 from weather import WeatherSystem
 from birds import Flock
+from fireflies import FireflySwarm
 import live_weather
 
 CRASH_LOG = "crash.log"
@@ -70,6 +71,30 @@ def _guess_hemisphere(data: dict, current_southern: bool) -> bool:
     except Exception:
         return current_southern
 
+def _snap_slider_to_now(slider, city_tz_offset: float) -> None:
+    """Snap the timeline slider to the current real time.
+
+    Uses the local machine clock when no city timezone offset is known (offset == 0),
+    so the result is always coherent regardless of live-weather data availability.
+    When a city UTC offset is set, converts from UTC to keep the city's local time.
+    """
+    if city_tz_offset == 0:
+        n = datetime.now()
+        nd = n.timetuple().tm_yday - 1
+        secs = n.hour * 3600 + n.minute * 60 + n.second
+    else:
+        n = datetime.now(timezone.utc)
+        nd = n.timetuple().tm_yday - 1
+        secs = n.hour * 3600 + n.minute * 60 + n.second + city_tz_offset * 3600
+        if secs < 0:
+            secs += 86400
+            nd -= 1
+        elif secs >= 86400:
+            secs -= 86400
+            nd += 1
+    slider.value = (nd % 365) + secs / 86400.0
+
+
 def write_crash(err):
     with open(CRASH_LOG, "a") as f:
         f.write(f"\n=== CRASH {datetime.now().isoformat()} ===\n")
@@ -102,10 +127,9 @@ try:
 
     slider = Slider(40, HEIGHT - 55, WIDTH - 80, 16, 0, 364.99, start_value)
     play_button = Button(40, HEIGHT - 98, 65, 32, "Play")
-    now_button = Button(110, HEIGHT - 98, 44, 32, "Now")
-    speed_slider = Slider(165, HEIGHT - 89, 170, 14, 0.1, 20, 1.0)
-    live_time_button = Button(345, HEIGHT - 98, 50, 32, "LIVE")
-    fast_forward_button = Button(400, HEIGHT - 98, 50, 32, "FFWD")
+    speed_slider = Slider(110, HEIGHT - 89, 210, 14, 0.1, 20, 1.0)
+    live_time_button = Button(330, HEIGHT - 98, 50, 32, "Now")
+    fast_forward_button = Button(385, HEIGHT - 98, 50, 32, "FFWD")
     calendar = Calendar(font, font_small)
     weather = WeatherSystem()
     flock = Flock(WIDTH, HEIGHT)
@@ -130,6 +154,12 @@ try:
     show_test = False
     show_help = False
     fullscreen = False
+
+    # ── Fun extras ──────────────────────────────────────────────────────────
+    firefly_swarm = FireflySwarm()
+    aurora_override = False   # A key toggles manual aurora
+    total_time = 0.0          # elapsed wall-clock seconds (for aurora animation)
+    meteor_shower_timer = 0.0 # seconds remaining in meteor shower burst
 
     running = True
 
@@ -205,12 +235,7 @@ try:
                 elif event.key == pygame.K_t:
                     live_time_mode = not live_time_mode
                     if live_time_mode:
-                        n = datetime.now(timezone.utc)
-                        nd = n.timetuple().tm_yday - 1
-                        secs = n.hour * 3600 + n.minute * 60 + n.second + city_tz_offset * 3600
-                        if secs < 0: secs += 86400; nd -= 1
-                        elif secs >= 86400: secs -= 86400; nd += 1
-                        slider.value = (nd % 365) + secs / 86400.0
+                        _snap_slider_to_now(slider, city_tz_offset)
                         playing = True
                         fast_forward_active = False
                     else:
@@ -219,11 +244,40 @@ try:
                     fast_forward_active = not fast_forward_active
                     if fast_forward_active:
                         live_time_mode = False
+                # ── Fun shortcuts ──────────────────────────────────────────
+                elif event.key == pygame.K_r:
+                    # Toggle rain
+                    if weather.rain_intensity > 0.05:
+                        weather.rain_intensity = 0.0
+                    else:
+                        weather.rain_intensity = 0.6
+                elif event.key == pygame.K_n:
+                    # Trigger a 5-second meteor shower
+                    meteor_shower_timer = 5.0
+                elif event.key == pygame.K_a:
+                    # Toggle aurora borealis
+                    aurora_override = not aurora_override
+                elif event.key == pygame.K_b:
+                    # Lightning bolt
+                    weather.force_flash()
+                elif event.key == pygame.K_g:
+                    # Jump forward 6 hours (skip to a different time of day)
+                    slider.value = (slider.value + 6 / 24.0) % 365
+                    live_time_mode = False
 
             elif event.type == pygame.MOUSEWHEEL:
                 slider.value += event.y * 0.3
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
+                # Click on the night sky to launch a shooting star at cursor
+                if my < int(HEIGHT * 0.72) and (hour < 6 or hour >= 18):
+                    if not (city_editing and city_rect.collidepoint(mx, my)):
+                        shooting_stars.append({
+                            "x": mx + 60,
+                            "y": max(0, my - 20),
+                            "len": 80,
+                            "speed": 7,
+                        })
                 if city_editing and go_button.rect.collidepoint(mx, my):
                     if city_input.strip():
                         city_name = city_input.strip()
@@ -253,20 +307,10 @@ try:
                 speed_slider.handle_event(event)
                 if play_button.handle_event(event):
                     playing = not playing
-                if now_button.handle_event(event):
-                    n = datetime.now()
-                    nd = n.timetuple().tm_yday - 1
-                    nh = n.hour + n.minute / 60.0 + n.second / 3600.0
-                    slider.value = nd + nh / 24.0
                 if live_time_button.handle_event(event):
                     live_time_mode = not live_time_mode
                     if live_time_mode:
-                        n = datetime.now(timezone.utc)
-                        nd = n.timetuple().tm_yday - 1
-                        secs = n.hour * 3600 + n.minute * 60 + n.second + city_tz_offset * 3600
-                        if secs < 0: secs += 86400; nd -= 1
-                        elif secs >= 86400: secs -= 86400; nd += 1
-                        slider.value = (nd % 365) + secs / 86400.0
+                        _snap_slider_to_now(slider, city_tz_offset)
                         playing = True
                         fast_forward_active = False
                     else:
@@ -280,12 +324,7 @@ try:
         speed = speed_slider.value
 
         if live_time_mode:
-            n = datetime.now(timezone.utc)
-            nd = n.timetuple().tm_yday - 1
-            secs = n.hour * 3600 + n.minute * 60 + n.second + city_tz_offset * 3600
-            if secs < 0: secs += 86400; nd -= 1
-            elif secs >= 86400: secs -= 86400; nd += 1
-            slider.value = (nd % 365) + secs / 86400.0
+            _snap_slider_to_now(slider, city_tz_offset)
         else:
             effective_speed = speed
             if fast_forward_active:
@@ -314,20 +353,14 @@ try:
             weather.fog_intensity = live_weather_data["fog_intensity"]
             weather._is_winter = live_weather_data["is_snow"]
             weather.wind_speed = live_weather_data["wind_speed"]
+            weather.cloud_cover = live_weather_data["cloud_cover"]
             wind_px = live_weather_data["wind_speed"] * 1.5
             for c in weather.clouds:
                 c.base_speed = wind_px
             # timezone offset — set slider to city's local time on first data arrival
             if not weather._tz_applied:
-                off = _timezone_offset(live_weather_data)
-                city_tz_offset = off
-                if off != 0:
-                    n = datetime.now(timezone.utc)
-                    secs = n.hour * 3600 + n.minute * 60 + n.second + off * 3600
-                    nd = n.timetuple().tm_yday - 1
-                    if secs < 0: secs += 86400; nd -= 1
-                    elif secs >= 86400: secs -= 86400; nd += 1
-                    slider.value = (nd % 365) + secs / 86400.0
+                city_tz_offset = _timezone_offset(live_weather_data)
+                _snap_slider_to_now(slider, city_tz_offset)
                 weather._tz_applied = True
                 # guess hemisphere from timezone + temperature
                 h = _guess_hemisphere(live_weather_data, southern)
@@ -340,18 +373,42 @@ try:
                 season = get_season(day, southern)
 
         flock.update(dt, hour, speed, WIDTH, HEIGHT)
+        firefly_swarm.update(dt, hour, speed, WIDTH, HEIGHT)
         sim_date = datetime(2026, 1, 1) + timedelta(days=day)
         moon_phase = compute_moon_phase(sim_date)
         phase_name = get_phase_name(moon_phase)
         year_pct = day / 364.99 * 100
 
+        total_time += dt
+
+        # Meteor shower burst
+        if meteor_shower_timer > 0:
+            meteor_shower_timer -= dt
+            if len(shooting_stars) < 12:
+                import random as _rnd
+                shooting_stars.append({
+                    "x": _rnd.randint(0, WIDTH),
+                    "y": _rnd.randint(0, int(HEIGHT * 0.25)),
+                    "len": _rnd.randint(40, 120),
+                    "speed": _rnd.uniform(5, 11),
+                })
+
+        # Aurora intensity: winter nights naturally, or manual override
+        aurora_intensity = 0.0
+        if aurora_override:
+            aurora_intensity = 0.85
+        elif season == "winter" and (hour < 5 or hour >= 19):
+            aurora_intensity = 0.55
+
         draw_sky(screen, WIDTH, HEIGHT, hour)
         draw_stars(screen, stars, shooting_stars, hour, WIDTH, HEIGHT, speed)
+        draw_aurora(screen, WIDTH, HEIGHT, hour, season, total_time, aurora_intensity)
         draw_sun(screen, WIDTH, HEIGHT, hour)
         draw_moon(screen, WIDTH, HEIGHT, hour, moon_phase)
         weather.draw_clouds(screen, WIDTH, HEIGHT, hour, pygame.time.get_ticks() / 1000)
         flock.draw(screen)
         draw_landscape(screen, WIDTH, HEIGHT, season, hour, day, weather)
+        firefly_swarm.draw(screen, WIDTH, HEIGHT)
         weather.draw(screen, WIDTH, HEIGHT, hour)
         update_shooting_stars(shooting_stars, WIDTH, HEIGHT, speed)
 
@@ -359,7 +416,6 @@ try:
         slider.width = WIDTH - 80
         speed_slider.rect.y = HEIGHT - 89
         play_button.rect.y = HEIGHT - 98
-        now_button.rect.y = HEIGHT - 98
         live_time_button.rect.y = HEIGHT - 98
         fast_forward_button.rect.y = HEIGHT - 98
 
@@ -369,7 +425,6 @@ try:
             slider.draw(screen)
             speed_slider.draw(screen)
             play_button.draw(screen)
-            now_button.draw(screen)
             live_time_button.draw(screen)
             fast_forward_button.draw(screen)
 
@@ -460,15 +515,15 @@ try:
         moonrise_h = (6 + moon_phase * 24) % 24
         moonset_h = (moonrise_h + 12) % 24
 
+        mode_tag = "  ◉ LIVE" if live_time_mode else ("  ⏩ FFWD" if fast_forward_active else "")
         lines = [
             (f"{date_str}  {phase_name}", font, (220, 230, 255), "hud_header"),
-            (f"{hh:02}:{mm:02}  ·  {season.title()}  ·  Day {day}", font_small, (190, 205, 235), "hud"),
-            (f"Speed {speed:.1f}x{'  LIVE' if live_time_mode else ''}{'  FFWD' if fast_forward_active else ''}", font_small, (170, 190, 220), "hud"),
+            (f"{hh:02}:{mm:02}  ·  {season.title()}  ·  Day {day}{mode_tag}", font_small, (190, 205, 235), "hud"),
+            (f"Speed {speed:.1f}x", font_small, (170, 190, 220), "hud"),
             (f"Sunrise 6:00  Sunset 18:00", font_small, (150, 175, 210), "hud"),
             (f"Moonrise {int(moonrise_h):02}:{int((moonrise_h%1)*60):02}  Moonset {int(moonset_h):02}:{int((moonset_h%1)*60):02}", font_small, (150, 175, 210), "hud"),
             (f"Next: {next_season_name} in {days_to_season}d", font_small, (130, 155, 190), "hud"),
             (f"Full {days_to_full:.1f}d  New {days_to_new:.1f}d", font_small, (130, 155, 190), "hud"),
-            (f"Now: {datetime.now():%H:%M:%S}", font_small, (110, 135, 175), "hud"),
         ]
 
         tw = max(l[1].size(l[0])[0] for l in lines) + 28

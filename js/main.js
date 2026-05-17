@@ -136,12 +136,22 @@ function loop() {
   // ── 5. Clouds ──
   const windKmh = typeof weatherInfo.windspeed === "number" ? weatherInfo.windspeed : 8;
   const windFactor = Math.min(2.0, Math.max(0.4, windKmh / 20));
-  const cloudList = weather !== "rain" && weather !== "storm" && weather !== "snow"
-    ? clouds
-    : clouds.concat([
-        { x: 35, y: 18, speed: 0.35, scale: 5 },
-        { x: 70, y: 22, speed: 0.45, scale: 6 },
-      ]);
+  let cloudList = clouds;
+  if (weather === "cloudy") {
+    cloudList = clouds.concat([
+      { x: 35, y: 18, speed: 0.35, scale: 5 },
+      { x: 70, y: 22, speed: 0.45, scale: 6 },
+      { x: 15, y: 28, speed: 0.5, scale: 7 },
+      { x: 85, y: 12, speed: 0.4, scale: 8 },
+      { x: 45, y: 8, speed: 0.6, scale: 5 },
+      { x: 5, y: 22, speed: 0.3, scale: 6 }
+    ]);
+  } else if (weather === "rain" || weather === "storm" || weather === "snow") {
+    cloudList = clouds.concat([
+      { x: 35, y: 18, speed: 0.35, scale: 5 },
+      { x: 70, y: 22, speed: 0.45, scale: 6 },
+    ]);
+  }
   cloudList.forEach((c) => {
     c.x += c.speed * 0.2 * windFactor;
     if (c.x > 110) c.x = -20;

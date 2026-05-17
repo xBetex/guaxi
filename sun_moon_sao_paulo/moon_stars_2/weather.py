@@ -62,9 +62,14 @@ class WeatherSystem:
         self.rain_drops = []
         self.wind_speed = 0
         self._tz_applied = False
+        self.cloud_cover = None
 
     def update(self, season, hour, day, speed=1.0, dt=0.016, w=1280, h=720):
-        target_clouds = {"summer": 5, "autumn": 10, "winter": 12, "spring": 8}.get(season, 5)
+        if self.cloud_cover is not None:
+            target_clouds = int(self.cloud_cover * 35)
+        else:
+            target_clouds = {"summer": 5, "autumn": 10, "winter": 12, "spring": 8}.get(season, 5)
+
         while len(self.clouds) < target_clouds:
             self.clouds.append(Cloud(w, h))
         for c in self.clouds[:]:
@@ -81,6 +86,28 @@ class WeatherSystem:
         if self._rainbow <= 0 and self.rain_intensity > 0.3:
             self._rainbow = 2.0
         self.moon_phase = (day / 29.53058867) % 1.0
+
+        # Maintain and move rain drops
+        if self.rain_intensity > 0.01:
+            target_drops = int(self.rain_intensity * (1000 if self._is_winter else 600))
+            while len(self.rain_drops) < target_drops:
+                self.rain_drops.append({
+                    "x": random.randint(-w // 2, int(w * 1.5)),
+                    "y": random.randint(-h, 0),
+                    "len": random.randint(4, 12) if not self._is_winter else random.randint(1, 3),
+                    "speed": random.uniform(700, 1100) if not self._is_winter else random.uniform(80, 180),
+                    "_drift": random.uniform(0, 100)
+                })
+            for d in self.rain_drops:
+                d["x"] += self.wind_speed * 12 * speed * dt
+                d["y"] += d["speed"] * speed * dt
+                if d["y"] > h:
+                    d["y"] = random.randint(-200, -10)
+                    d["x"] = random.randint(-w // 2, int(w * 1.5))
+            if len(self.rain_drops) > target_drops:
+                self.rain_drops = self.rain_drops[:target_drops]
+        else:
+            self.rain_drops.clear()
 
     def force_flash(self):
         self._flash = 1.0
@@ -108,6 +135,24 @@ class WeatherSystem:
             pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, w, cy))
             rb.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             screen.blit(rb, (0, 0))
+
+        if self.cloud_cover is not None and self.cloud_cover > 0.4:
+            overcast = pygame.Surface((w, int(h * 0.8)), pygame.SRCALPHA)
+            alpha_max = int((self.cloud_cover - 0.4) / 0.6 * 220)
+            
+            if hour < 5 or hour >= 19:
+                color = (30, 35, 45)
+            elif hour < 7 or hour >= 17:
+                color = (120, 100, 110)
+            else:
+                color = (180, 190, 200)
+                
+            for y in range(0, int(h * 0.8), 8):
+                a = int(alpha_max * (1 - (y / (h * 0.8)) ** 2))
+                if a > 0:
+                    pygame.draw.rect(overcast, (*color, a), (0, y, w, 8))
+            screen.blit(overcast, (0, 0))
+
         for c in self.clouds:
             screen.blit(c.surf, (int(c.x), int(c.y)))
 

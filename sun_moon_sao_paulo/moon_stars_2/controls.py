@@ -85,41 +85,91 @@ class Button:
 
 
 HELP_TEXT = [
-    ("Space", "Play / Pause"),
-    ("Arrows", "Scroll time"),
-    ("+ / -", "Speed"),
-    ("W", "Weather debug"),
-    ("F2", "Debug overlay"),
-    ("F3", "Calendar"),
-    ("F5", "Test menu"),
-    ("F11", "Fullscreen"),
-    ("H", "Help"),
-    ("S", "Hide/show controls"),
-    ("Now btn", "Jump to current time"),
-    ("Mouse drag", "Sliders"),
-    ("Scroll", "Days"),
+    ("Space",            "Play / Pause"),
+    ("Left / Right",     "Scroll time"),
+    ("+ / -",            "Speed up / down"),
+    ("T",                "Toggle live time mode"),
+    ("G",                "Jump +6 hours"),
+    ("", ""),
+    ("\u2605 Fun keys \u2605", ""),
+    ("R",                "Toggle rain"),
+    ("N",                "Trigger meteor shower"),
+    ("A",                "Toggle aurora borealis"),
+    ("B",                "Lightning bolt"),
+    ("Click night sky",  "Launch shooting star"),
+    ("", ""),
+    ("F2",               "Debug overlay"),
+    ("F3",               "Calendar"),
+    ("F5",               "Test menu"),
+    ("F11",              "Fullscreen"),
+    ("H",                "Toggle this help"),
+    ("S",                "Show / hide controls"),
 ]
 
 
 def draw_help(screen, font):
+    """Draw a centred help overlay with a proper two-column key / action layout."""
     w, h = screen.get_size()
-    panel = pygame.Surface((w, h), pygame.SRCALPHA)
-    panel.fill((0, 0, 0, 180))
-    lines = ["Controls"] + [""] + [f"{k:>12}  {d}" for k, d in HELP_TEXT]
-    total_h = len(lines) * 28 + 40
-    y = (h - total_h) // 2
-    for line in lines:
-        if line == "Controls":
-            t = font.render(line, True, (200, 210, 255))
-        elif line == "":
-            y += 14
+
+    # Dim the background
+    overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 175))
+    screen.blit(overlay, (0, 0))
+
+    COL_GAP   = 24   # gap between key column and action column
+    ROW_H     = 26
+    TITLE_H   = 38
+    PAD_X     = 32
+    PAD_Y     = 22
+    KEY_COL_W = 160  # fixed width reserved for the key label
+
+    # Measure panel size
+    row_count = sum(1 for k, _ in HELP_TEXT if k != "") + sum(1 for k, _ in HELP_TEXT if k == "") + 1  # +1 title
+    panel_w = KEY_COL_W + COL_GAP + 260 + PAD_X * 2
+    panel_h = TITLE_H + len(HELP_TEXT) * ROW_H + PAD_Y * 2 + 10
+
+    px = (w - panel_w) // 2
+    py = (h - panel_h) // 2
+
+    # Panel background
+    panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+    panel.fill((16, 18, 28, 240))
+    pygame.draw.rect(panel, (60, 70, 100, 200), panel.get_rect(), width=1, border_radius=10)
+    # Accent bar at top
+    pygame.draw.rect(panel, (88, 101, 242), pygame.Rect(0, 0, panel_w, 3), border_radius=2)
+    screen.blit(panel, (px, py))
+
+    # Title
+    title_surf = font.render("Keyboard Controls", True, (200, 210, 255))
+    screen.blit(title_surf, (px + PAD_X, py + PAD_Y))
+
+    # Separator
+    sep_y = py + PAD_Y + TITLE_H - 6
+    pygame.draw.line(screen, (50, 60, 90), (px + PAD_X, sep_y), (px + panel_w - PAD_X, sep_y))
+
+    y = sep_y + 10
+    for key, action in HELP_TEXT:
+        if key == "" and action == "":
+            y += ROW_H // 2
             continue
+        if action == "":  # Section header (e.g. "★ Fun keys ★")
+            lbl = font.render(key, True, (140, 155, 255))
+            screen.blit(lbl, (px + PAD_X, y))
         else:
-            t = font.render(line, True, (180, 190, 210))
-        tw = t.get_width()
-        panel.blit(t, ((w - tw) // 2, y))
-        y += 28
-    screen.blit(panel, (0, 0))
+            key_surf   = font.render(key, True, (255, 230, 130))
+            act_surf   = font.render(action, True, (185, 200, 225))
+            # Right-align the key inside the key column
+            kx = px + PAD_X + KEY_COL_W - key_surf.get_width()
+            screen.blit(key_surf, (kx, y))
+            # Divider dot
+            dot_x = px + PAD_X + KEY_COL_W + COL_GAP // 2 - 2
+            pygame.draw.circle(screen, (80, 95, 130), (dot_x, y + ROW_H // 2 - 2), 2)
+            screen.blit(act_surf, (px + PAD_X + KEY_COL_W + COL_GAP, y))
+        y += ROW_H
+
+    # Dismiss hint at bottom
+    hint = font.render("Press  H  to close", True, (90, 105, 140))
+    screen.blit(hint, (px + (panel_w - hint.get_width()) // 2, py + panel_h - PAD_Y - hint.get_height()))
 
 
 def draw_test_menu(screen, font, weather, moon_phase, phase_name):

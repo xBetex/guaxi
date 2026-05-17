@@ -304,19 +304,29 @@ def generate_stars(count, w, h):
 def draw_stars(screen, stars, shooting, hour, w, h, speed=1.0):
     if 6 <= hour < 18:
         return
-    
+
     if hour >= 18 and hour < 20:
         vis = (hour - 18) / 2
     elif hour >= 5 and hour < 6:
         vis = 1 - (hour - 5)
     else:
         vis = 1
-    
+
     for s in stars:
         s["p"] += s["sp"] * 0.01 * speed
         a = vis * s["b"] * (0.5 + 0.5 * math.sin(s["p"]))
-
-    ...
+        alpha = max(0, min(255, int(a * 255)))
+        if alpha < 8:
+            continue
+        sx, sy = s["x"], s["y"]
+        sz = s["size"]
+        if sz == 1:
+            screen.set_at((int(sx), int(sy)), (alpha, alpha, alpha))
+        else:
+            star_surf = pygame.Surface((sz * 2 + 1, sz * 2 + 1), pygame.SRCALPHA)
+            pygame.draw.circle(star_surf, (alpha, alpha, max(0, alpha - 20), alpha),
+                               (sz, sz), sz)
+            screen.blit(star_surf, (int(sx) - sz, int(sy) - sz))
 
     if random.random() < 0.004 * speed:
         shooting.append({
@@ -325,18 +335,86 @@ def draw_stars(screen, stars, shooting, hour, w, h, speed=1.0):
             "len": random.randint(20, 70),
             "speed": random.uniform(4, 9)
         })
-    
+
     for s in shooting:
         steps = max(3, s["len"] // 6)
         for i in range(steps):
             t = i / steps
             x = s["x"] - t * s["len"]
             y = s["y"] + t * s["len"] * 0.5
-            alpha = int(255 * (1 - t))
+            alpha = int(255 * (1 - t) * vis)
             size = 3 if i < 2 else 1
-            star = _build_pixel_celestial("star", size * 3, star_size=size, brightness=255)
-            screen.blit(star, (int(x) - size, int(y) - size))
-            star.set_alpha(alpha)
+            if alpha > 10:
+                star = _build_pixel_celestial("star", size * 3, star_size=size, brightness=255)
+                star.set_alpha(alpha)
+                screen.blit(star, (int(x) - size, int(y) - size))
+
+
+def draw_aurora(screen, w, h, hour, season, t=0.0, intensity=1.0):
+    """Draw dancing aurora borealis bands in the upper sky.
+
+    Uses horizontal pygame.draw.line strips instead of pixel-by-pixel set_at
+    for a massive performance improvement (~100x fewer draw calls).
+    ``t``         — elapsed time in seconds (for animation).
+    ``intensity`` — 0..1 override (1 = full, 0 = off).
+    """
+    if intensity <= 0.01:
+        return
+    # Night visibility fade
+    if hour >= 19:
+        night_vis = min(1.0, (hour - 19) / 1.5)
+    elif hour < 4:
+        night_vis = 1.0
+    elif hour < 6:
+        night_vis = max(0.0, 1.0 - (hour - 4) / 2.0)
+    else:
+        return  # daytime
+
+    alpha_scale = night_vis * intensity
+    if alpha_scale < 0.02:
+        return
+
+    aurora_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+
+    # Aurora bands
+    bands = [
+        # (base_y_frac, color_a, color_b, wave_freq, wave_amp, phase_offset, thickness)
+        (0.08, (0, 255, 120),   (80, 200, 255),  0.8,  0.04,  0.0,  0.07),
+        (0.14, (80, 200, 255),  (180, 80, 255),  1.1,  0.035, 1.2,  0.06),
+        (0.19, (0, 255, 160),   (0, 200, 255),   0.6,  0.028, 2.5,  0.05),
+        (0.05, (200, 80, 255),  (0, 255, 140),   1.4,  0.045, 0.7,  0.04),
+    ]
+
+    # Step size: 6px wide strips — invisible at aurora scale, huge win
+    X_STEP = 6
+
+    for base_frac, col_a, col_b, freq, amp, phase_off, thick_frac in bands:
+        band_h = max(2, int(h * thick_frac))
+        drift = math.sin(t * 0.12 + phase_off) * h * 0.02
+        base_y = int(h * base_frac + drift)
+
+        for x in range(0, w, X_STEP):
+            wave = math.sin(x * freq * 0.012 + t * 0.4 + phase_off)
+            shimmer = 0.5 + 0.5 * math.sin(x * 0.05 + t * 1.1 + phase_off * 2)
+            y_off = int(wave * h * amp)
+
+            cx_frac = (math.sin(x * 0.007 + t * 0.2) + 1) / 2
+            r = int(col_a[0] + (col_b[0] - col_a[0]) * cx_frac)
+            g = int(col_a[1] + (col_b[1] - col_a[1]) * cx_frac)
+            b = int(col_a[2] + (col_b[2] - col_a[2]) * cx_frac)
+            x2 = min(w - 1, x + X_STEP - 1)
+
+            for dy in range(band_h):
+                fy = dy / band_h
+                fade = math.exp(-((fy - 0.5) ** 2) * 8)
+                a = int(alpha_scale * shimmer * fade * 110)
+                if a < 3:
+                    continue
+                py = base_y + y_off + dy
+                if 0 <= py < h:
+                    pygame.draw.line(aurora_surf, (r, g, b, a), (x, py), (x2, py))
+
+    screen.blit(aurora_surf, (0, 0))
 
 def update_shooting_stars(stars, w, h, speed=1.0):
     for s in stars[:]:
