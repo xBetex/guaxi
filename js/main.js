@@ -158,6 +158,17 @@ function loop() {
     drawSprite(CLOUD, (c.x / 100) * canvas.width, (c.y / 100) * canvas.height, c.scale * 2.4, season);
   });
 
+  // ── 5.5 Sky Fog Overlay ──
+  if (weather === "cloudy") {
+    const fogGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+    const fogColor = isNight ? "150, 160, 170" : "255, 255, 255";
+    fogGrad.addColorStop(0, `rgba(${fogColor}, 0)`);
+    fogGrad.addColorStop(0.5, `rgba(${fogColor}, 0.15)`);
+    fogGrad.addColorStop(1, `rgba(${fogColor}, 0.45)`);
+    ctx.fillStyle = fogGrad;
+    ctx.fillRect(0, 0, canvas.width, groundY);
+  }
+
   // ── 6. Mountains ──
   const mtnSnow = season === "winter" || weather === "snow";
   drawBlockyMountain(canvas.width * 0.25, groundY, canvas.height * 0.45, canvas.width * 0.6, theme.mountain, theme.mountainLight, mtnSnow);
@@ -398,7 +409,7 @@ function loop() {
     drawRain(groundY, weather === "storm" ? 1 : 0.6);
   else if (weather === "snow") drawSnow();
 
-  // ── 15. Lightning ──
+  // ── 16. Lightning ──
   if (lightningFlash > 0) {
     ctx.fillStyle = `rgba(255,255,255,${lightningFlash / 20})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
