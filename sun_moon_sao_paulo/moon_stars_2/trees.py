@@ -7,14 +7,17 @@ Call `draw_trees()` after drawing the sky/buildings, before HUD.
 import math
 import random
 import pygame
-from poly_trees import draw_tree_batch, invalidate_cache
+from tree_sheet import TreeSheet
 
-_SEASON_VARIANT = {
-    "spring": 4,
-    "summer": 1,
-    "autumn": 1,
-    "winter": 0,
-}
+_tree_sheet = None
+
+def _get_tree_sheet():
+    global _tree_sheet
+    if _tree_sheet is None:
+        _tree_sheet = TreeSheet()
+    return _tree_sheet
+
+# Variant selection is done dynamically.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Artistic Controls (Tweak these to change forest look!)
@@ -35,7 +38,6 @@ _DISTANCE_FOG = [0.55, 0.30, 0.05]
 
 def draw_forest_treeline(screen, w, h, ground_y, season, day, base_scale, weather):
     trees = []
-    variant = _SEASON_VARIANT.get(season, 1)
 
     bands = [
         (0,  0.005, 0.60, (140, 220)),
@@ -57,18 +59,24 @@ def draw_forest_treeline(screen, w, h, ground_y, season, day, base_scale, weathe
             sz = int(120 * base_scale * sz_frac * fh * TREE_SIZE_MULT)
             if sz >= 10:
                 anchor_y = band_y
+                variant = rng.randint(0, 3)
                 trees.append((tx, anchor_y, sz, variant, band_fog))
             x += rng.randint(int(step_rng[0] / BG_DENSITY_MULT), int(step_rng[1] / BG_DENSITY_MULT))
 
     if trees:
-        draw_tree_batch(screen, trees, season)
+        ts = _get_tree_sheet()
+        for tx, anchor_y, sz, variant, band_fog in trees:
+            img = ts.get(season, variant, sz)
+            if img:
+                rect = img.get_rect(midbottom=(tx, anchor_y))
+                screen.blit(img, rect)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Foreground trees (on top of ground)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _generate_foreground_positions(w, h, day, base_scale, variant):
+def _generate_foreground_positions(w, h, day, base_scale):
     rng = random.Random(0xA5F3)
 
     trees = []
@@ -99,6 +107,7 @@ def _generate_foreground_positions(w, h, day, base_scale, variant):
             else:
                 depth_z = 2
 
+            variant = rng.randint(0, 3)
             trees.append((depth_z, tx, anchor_y, sz, variant))
 
     trees.sort(key=lambda t: (t[0], t[3]))
@@ -106,16 +115,20 @@ def _generate_foreground_positions(w, h, day, base_scale, variant):
 
 
 def draw_foreground_trees(screen, w, h, ground_y, season, day, base_scale, weather):
-    variant = _SEASON_VARIANT.get(season, 1)
-    raw = _generate_foreground_positions(w, h, day, base_scale, variant)
+    raw = _generate_foreground_positions(w, h, day, base_scale)
     trees = []
-    for depth_z, tx, anchor_y, sz, _ in raw:
+    for depth_z, tx, anchor_y, sz, variant in raw:
         if sz < 18:
             continue
         effective_fog = _DISTANCE_FOG[depth_z] * 0.6
         trees.append((tx, anchor_y, sz, variant, effective_fog))
     if trees:
-        draw_tree_batch(screen, trees, season)
+        ts = _get_tree_sheet()
+        for tx, anchor_y, sz, variant, band_fog in trees:
+            img = ts.get(season, variant, sz)
+            if img:
+                rect = img.get_rect(midbottom=(tx, anchor_y))
+                screen.blit(img, rect)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

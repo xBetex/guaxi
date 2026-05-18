@@ -96,6 +96,7 @@ HELP_TEXT = [
     ("N",                "Trigger meteor shower"),
     ("A",                "Toggle aurora borealis"),
     ("B",                "Lightning bolt"),
+    ("V",                "Toggle skycam PIP"),
     ("Click night sky",  "Launch shooting star"),
     ("", ""),
     ("F2",               "Debug overlay"),

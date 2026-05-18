@@ -160,6 +160,7 @@ try:
     aurora_override = False   # A key toggles manual aurora
     total_time = 0.0          # elapsed wall-clock seconds (for aurora animation)
     meteor_shower_timer = 0.0 # seconds remaining in meteor shower burst
+    camera_mode = 0
 
     running = True
 
@@ -264,6 +265,8 @@ try:
                     # Jump forward 6 hours (skip to a different time of day)
                     slider.value = (slider.value + 6 / 24.0) % 365
                     live_time_mode = False
+                elif event.key == pygame.K_v:
+                    camera_mode = (camera_mode + 1) % 4
 
             elif event.type == pygame.MOUSEWHEEL:
                 slider.value += event.y * 0.3
@@ -411,6 +414,58 @@ try:
         firefly_swarm.draw(screen, WIDTH, HEIGHT)
         weather.draw(screen, WIDTH, HEIGHT, hour)
         update_shooting_stars(shooting_stars, WIDTH, HEIGHT, speed)
+
+        if camera_mode > 0:
+            pip_w, pip_h = 320, 180
+            pip_surf = pygame.Surface((pip_w, pip_h))
+            
+            if camera_mode == 3:  # Sky Telescope
+                draw_sky(pip_surf, pip_w, pip_h, hour)
+                pip_stars = [s for s in stars if s["x"] < pip_w and s["y"] < pip_h]
+                pip_shooting = [s for s in shooting_stars if s["x"] < pip_w and s["y"] < pip_h]
+                draw_stars(pip_surf, pip_stars, pip_shooting, hour, pip_w, pip_h, speed)
+                draw_aurora(pip_surf, pip_w, pip_h, hour, season, total_time, aurora_intensity)
+                draw_sun(pip_surf, pip_w, pip_h, hour)
+                draw_moon(pip_surf, pip_w, pip_h, hour, moon_phase)
+                lbl = "SKYCAM"
+                
+            elif camera_mode == 1:  # Inside City
+                draw_sky(pip_surf, pip_w, pip_h, hour)
+                from cityscape import draw_city_layer
+                from landscape import _get_city
+                cw, ch = pip_w * 6, pip_h * 4
+                front, mid, far = _get_city(cw, ch)
+                city_surf = pygame.Surface((cw, ch), pygame.SRCALPHA)
+                is_dark = (hour < 6 or hour >= 19)
+                cols = [(far, (22, 28, 44) if is_dark else (70, 85, 110), False, False),
+                        (mid, (30, 34, 54) if is_dark else (45, 55, 80), False, False),
+                        (front, (14, 16, 26) if is_dark else (25, 28, 42), True, True)]
+                for bldgs, col, win, protr in cols:
+                    draw_city_layer(city_surf, cw, ch, ch - 20, bldgs, col, hour, win, protr)
+                pip_surf.blit(city_surf, (-pip_w * 2.5, -(ch - pip_h)))
+                lbl = "CITYCAM"
+                
+            elif camera_mode == 2:  # Outside Forest
+                draw_sky(pip_surf, pip_w, pip_h, hour)
+                from trees import draw_trees
+                fw, fh = pip_w * 3, pip_h * 3
+                forest_surf = pygame.Surface((fw, fh), pygame.SRCALPHA)
+                draw_trees(forest_surf, fw, fh, fh - 20, season, day, 2.5, weather)
+                pip_surf.blit(forest_surf, (-pip_w * 1.0, -(fh - pip_h)))
+                lbl = "FORESTCAM"
+
+            # Draw frame and label
+            pygame.draw.rect(pip_surf, (80, 95, 130), pip_surf.get_rect(), width=2, border_radius=4)
+            lbl_surf = font_small.render(lbl, True, (255, 255, 255))
+            
+            lbl_bg = pygame.Surface((lbl_surf.get_width() + 12, lbl_surf.get_height() + 6), pygame.SRCALPHA)
+            lbl_bg.fill((0, 0, 0, 180))
+            pip_surf.blit(lbl_bg, (4, 4))
+            pip_surf.blit(lbl_surf, (10, 7))
+            
+            pip_x = WIDTH - pip_w - 20
+            pip_y = HEIGHT - pip_h - 20
+            screen.blit(pip_surf, (pip_x, pip_y))
 
         slider.rect.y = HEIGHT - 55
         slider.width = WIDTH - 80

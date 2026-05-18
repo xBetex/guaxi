@@ -353,10 +353,9 @@ def draw_stars(screen, stars, shooting, hour, w, h, speed=1.0):
 def draw_aurora(screen, w, h, hour, season, t=0.0, intensity=1.0):
     """Draw dancing aurora borealis bands in the upper sky.
 
-    Uses horizontal pygame.draw.line strips instead of pixel-by-pixel set_at
-    for a massive performance improvement (~100x fewer draw calls).
-    ``t``         — elapsed time in seconds (for animation).
-    ``intensity`` — 0..1 override (1 = full, 0 = off).
+    Uses a low-resolution surface to draw horizontal pygame.draw.line strips,
+    then smoothscales up. This achieves a massive performance improvement 
+    (~100x fewer draw calls) and produces a beautiful natural blur effect.
     """
     if intensity <= 0.01:
         return
@@ -374,7 +373,12 @@ def draw_aurora(screen, w, h, hour, season, t=0.0, intensity=1.0):
     if alpha_scale < 0.02:
         return
 
-    aurora_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    # Render at 1/8th resolution
+    SCALE = 8
+    sw = max(1, w // SCALE)
+    sh = max(1, h // SCALE)
+
+    aurora_surf = pygame.Surface((sw, sh), pygame.SRCALPHA)
 
     # Aurora bands
     bands = [
@@ -385,24 +389,26 @@ def draw_aurora(screen, w, h, hour, season, t=0.0, intensity=1.0):
         (0.05, (200, 80, 255),  (0, 255, 140),   1.4,  0.045, 0.7,  0.04),
     ]
 
-    # Step size: 6px wide strips — invisible at aurora scale, huge win
-    X_STEP = 6
+    # Step size on the small surface
+    X_STEP = 2
 
     for base_frac, col_a, col_b, freq, amp, phase_off, thick_frac in bands:
-        band_h = max(2, int(h * thick_frac))
-        drift = math.sin(t * 0.12 + phase_off) * h * 0.02
-        base_y = int(h * base_frac + drift)
+        band_h = max(2, int(sh * thick_frac))
+        drift = math.sin(t * 0.12 + phase_off) * sh * 0.02
+        base_y = int(sh * base_frac + drift)
 
-        for x in range(0, w, X_STEP):
-            wave = math.sin(x * freq * 0.012 + t * 0.4 + phase_off)
-            shimmer = 0.5 + 0.5 * math.sin(x * 0.05 + t * 1.1 + phase_off * 2)
-            y_off = int(wave * h * amp)
+        for x in range(0, sw, X_STEP):
+            # Scale x back up to maintain the same frequency visual
+            orig_x = x * SCALE
+            wave = math.sin(orig_x * freq * 0.012 + t * 0.4 + phase_off)
+            shimmer = 0.5 + 0.5 * math.sin(orig_x * 0.05 + t * 1.1 + phase_off * 2)
+            y_off = int(wave * sh * amp)
 
-            cx_frac = (math.sin(x * 0.007 + t * 0.2) + 1) / 2
+            cx_frac = (math.sin(orig_x * 0.007 + t * 0.2) + 1) / 2
             r = int(col_a[0] + (col_b[0] - col_a[0]) * cx_frac)
             g = int(col_a[1] + (col_b[1] - col_a[1]) * cx_frac)
             b = int(col_a[2] + (col_b[2] - col_a[2]) * cx_frac)
-            x2 = min(w - 1, x + X_STEP - 1)
+            x2 = min(sw - 1, x + X_STEP - 1)
 
             for dy in range(band_h):
                 fy = dy / band_h
@@ -411,8 +417,12 @@ def draw_aurora(screen, w, h, hour, season, t=0.0, intensity=1.0):
                 if a < 3:
                     continue
                 py = base_y + y_off + dy
-                if 0 <= py < h:
+                if 0 <= py < sh:
                     pygame.draw.line(aurora_surf, (r, g, b, a), (x, py), (x2, py))
+
+    # Scale up for beautiful soft blur
+    if sw < w or sh < h:
+        aurora_surf = pygame.transform.smoothscale(aurora_surf, (w, h))
 
     screen.blit(aurora_surf, (0, 0))
 
