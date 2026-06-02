@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // js/assets.js — Image loading, sprite-sheet helpers, bottom-pixel detection
 // ============================================================
 
@@ -39,14 +39,14 @@ function getBottomYFromRegion(img, sx, sy, sw, sh, cache, cacheKey) {
 
 // ─── Raccoon image ────────────────────────────────────────────
 const raccoonImg = new Image();
-raccoonImg.src = "ässets/guaxinim_inteiro_transp.png";
+raccoonImg.src = "assets/guaxinim_inteiro_transp.png";
 
 // ─── Bonfire image ────────────────────────────────────────────
 const bonfireImg = new Image();
 let bonfireImgLoaded = false;
 bonfireImg.onload  = () => { bonfireImgLoaded = true;  };
 bonfireImg.onerror = () => { bonfireImgLoaded = false; };
-bonfireImg.src = "ässets/bonfire.png";
+bonfireImg.src = "assets/bonfire.png";
 
 // ─── Trees sprite-sheet ───────────────────────────────────────
 const treesSheet = new Image();
@@ -62,7 +62,7 @@ treesSheet.onload = () => {
   } catch (_) {}
 };
 treesSheet.onerror = () => { treesSheetLoaded = false; };
-treesSheet.src = "ässets/trees_sheet.png";
+treesSheet.src = "assets/trees_sheet.png";
 
 // ─── Per-season tree images ───────────────────────────────────
 const treeImgs = {
@@ -73,20 +73,20 @@ const treeImgs = {
 };
 
 function loadTreeImages() {
-  treeImgs.spring.center.src   = "ässets/spring_out.png";
-  treeImgs.summer.center.src   = "ässets/summer_out.png";
-  treeImgs.autumn.center.src   = "ässets/autum_out.png";
-  treeImgs.winter.center.src   = "ässets/winter_out.png";
+  treeImgs.spring.center.src   = "assets/spring_out.png";
+  treeImgs.summer.center.src   = "assets/summer_out.png";
+  treeImgs.autumn.center.src   = "assets/autum_out.png";
+  treeImgs.winter.center.src   = "assets/winter_out.png";
 
-  treeImgs.spring.centerIn.src = "ässets/spring_in.png";
-  treeImgs.summer.centerIn.src = "ässets/summer_in.png";
-  treeImgs.autumn.centerIn.src = "ässets/autum_in.png";
-  treeImgs.winter.centerIn.src = "ässets/winter_in.png";
+  treeImgs.spring.centerIn.src = "assets/spring_in.png";
+  treeImgs.summer.centerIn.src = "assets/summer_in.png";
+  treeImgs.autumn.centerIn.src = "assets/autum_in.png";
+  treeImgs.winter.centerIn.src = "assets/winter_in.png";
 
-  treeImgs.spring.small.src = "ässets/spring_small.png";
-  treeImgs.summer.small.src = "ässets/summer_small.png";
-  treeImgs.autumn.small.src = "ässets/autum_small.png";
-  treeImgs.winter.small.src = "ässets/winter_small.png";
+  treeImgs.spring.small.src = "assets/spring_small.png";
+  treeImgs.summer.small.src = "assets/summer_small.png";
+  treeImgs.autumn.small.src = "assets/autum_small.png";
+  treeImgs.winter.small.src = "assets/winter_small.png";
 
   Object.entries(treeImgs).forEach(([season, imgs]) => {
     Object.entries(imgs).forEach(([type, img]) => {

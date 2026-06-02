@@ -37,5 +37,19 @@ Thumbs.db
 
 # Misc
 *.bak
-crash.log
 .gemini/
+
+# Backup / scratch files
+*_backup.py
+* - Copy.py
+landscape_update.py
+codebase_bundle.md
+
+# Pygame port – generated/cache
+guaxinin_pygame/sprites/
+guaxinin_pygame/crash.log
+guaxinin_pygame/__pycache__/
+guaxinin_pygame/.venv/
+
+# Old misspelled assets folder (renamed to assets/)
+ässets/

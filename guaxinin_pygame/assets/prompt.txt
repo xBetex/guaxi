@@ -1,0 +1,307 @@
+Aqui está o prompt completo para recriar o projeto:
+
+---
+
+## PROMPT PARA RECRIAR O PROJETO GUAXINIM TEMPO REAL
+
+---
+
+Crie um arquivo HTML único chamado `guaxinim_tempo_real.html` que implementa uma animação interativa de um guaxinim dançante com cenário pixel art que muda conforme o horário real do dia. O projeto usa apenas HTML5 Canvas + JavaScript puro, sem bibliotecas externas.
+
+---
+
+### ESTRUTURA GERAL
+
+- `<!DOCTYPE html>`, `lang="pt-BR"`, charset UTF-8
+- `body`: `margin: 0`, `overflow: hidden`, `background: #000`
+- `canvas#gameCanvas`: `display: block`, `width: 100vw`, `height: 100vh`, `image-rendering: pixelated`
+- Canvas usa `getContext('2d', { alpha: false })`
+- Função `resize()` que seta `canvas.width = window.innerWidth` e `canvas.height = window.innerHeight`, chamada no load e no `window.addEventListener('resize', resize)`
+- Loop principal via `requestAnimationFrame`
+
+---
+
+### 1. IMAGEM DO GUAXINIM
+
+Carrega uma imagem externa:
+```js
+const raccoonImg = new Image();
+raccoonImg.src = 'guaxinim_inteiro_transp.png';
+```
+A imagem é 1024x1024 com fundo transparente. O guaxinim não ocupa toda a altura — há espaço em branco na parte inferior da imagem.
+
+---
+
+### 2. TEMAS DE COR POR HORÁRIO
+
+Objeto `THEMES` com 4 temas, cada um com: `sky1`, `sky2`, `sky3`, `grass1`, `grass2`, `mountain`, `mountainLight`:
+
+```js
+manha: { sky1:'#74b9ff', sky2:'#81ecec', sky3:'#ffeaa7', grass1:'#55efc4', grass2:'#00b894', mountain:'#827397', mountainLight:'#a29bfe' }
+dia:   { sky1:'#0984e3', sky2:'#74b9ff', sky3:'#81ecec', grass1:'#78e08f', grass2:'#38ada9', mountain:'#4a5b63', mountainLight:'#636e72' }
+tarde: { sky1:'#6c5ce7', sky2:'#e84393', sky3:'#fdcb6e', grass1:'#e58e26', grass2:'#b71540', mountain:'#1b1b2f', mountainLight:'#2d3436' }
+noite: { sky1:'#000000', sky2:'#1e272e', sky3:'#0f1423', grass1:'#0a3d62', grass2:'#072b45', mountain:'#0a0a0f', mountainLight:'#1e272e' }
+```
+
+Função `getTimeTheme()`:
+- `h >= 6 && h < 9` → manha
+- `h >= 9 && h < 17` → dia
+- `h >= 17 && h < 18` → tarde
+- qualquer outro → noite
+
+`isNight` = `h >= 18 || h < 6`
+
+---
+
+### 3. SISTEMA DE SPRITES PIXEL ART
+
+Paleta de cores `COLORS` (objeto com chave = letra, valor = hex):
+```
+'T': null (transparente)
+'K': '#1e272e'
+'B': '#834c32', 'D': '#5c3a21'   // tronco
+'M': '#2ecc71', 'N': '#27ae60', 'E': '#1e8449'  // folhas
+'S': '#f1c40f', 'O': '#e67e22'   // sol
+'C': '#f5f6fa', 'Y': '#ffffff', 'V': '#dcdde1', 'I': '#7f8fa6'  // lua
+'G': '#a5b1c2', 'A': '#485460'   // pedras
+'R': '#ff9ff3', 'P': '#f368e0'   // flores
+```
+
+Função `drawSprite(sprite, startX, startY, scale, flip=false)`:
+- Itera `y` nas linhas do array, `x` nos chars
+- Se char !== `'T'`: `ctx.fillStyle = COLORS[char]`
+- Se `flip`: `drawX = (row.length - 1 - x)`, senão `drawX = x`
+- `ctx.fillRect(startX + drawX * scale, startY + y * scale, scale, scale)`
+
+---
+
+### 4. SPRITES (arrays de strings)
+
+**TREE** (27 linhas × 26 chars) — árvore com copa verde e tronco marrom:
+```
+"TTTTTTTTTTKKKKKKTTTTTTTTTT",
+"TTTTTTTKKKMMMMMMKKKTTTTTTT",
+"TTTTTKKMMMMMMMMMMMMKKTTTTT",
+"TTTTKMMMMMMNNNNMMMMMMKTTTT",
+"TTTKMMMMMNNNNNNNNMMMMMKTTT",
+"TTKMMMMMNNNNNNNNNNMMMMMKTT",
+"TKMMMMMNNNNNNNNNNNNMMMMKTT",
+"TKMMMMNNNNNNNNNNNNNNMMMMKT",
+"KMMMMNNNNNNNNNNNNNNNNMMMMK",
+"KMMMNNNNNNNEEEENNNNNNNMMMK",
+"KMMMNNNNNNEEEEEEENNNNNMMMK",
+"KMMNNNNNNNEEEEEEEENNNNNMMK",
+"TKNNNNNNNNEEEEEEEENNNNNNKT",
+"TKNNNNNNNNEEEEEEEENNNNNNKT",
+"TTKNNNNNNNEEEEEEEENNNNNKTT",
+"TTTKKNNNNNEEEEEEENNNNKKTTT",
+"TTTTTKKNNNEEEEEENNNKKTTTTT",
+"TTTTTTTKKNEEEEEENKKTTTTTTT",
+"TTTTTTTTTKKEEEEKKTTTTTTTTT",
+"TTTTTTTTTTTKBBKTTTTTTTTTTT",
+"TTTTTTTTTTTKBDBKTTTTTTTTTT",
+"TTTTTTTTTTTKBDBKTTTTTTTTTT",
+"TTTTTTTTTTTKBDBKTTTTTTTTTT",
+"TTTTTTTTTTTKBDBKTTTTTTTTTT",
+"TTTTTTTTTTTKBDBKTTTTTTTTTT",
+"TTTTTTTTTTKKBDBKKTTTTTTTTT",
+"TTTTTTTTTKKKBDBKKKTTTTTTTT"
+```
+
+**BUSH** (7 linhas × 18 chars):
+```
+"TTTTTTMMMMMNTTTTTT",
+"TTTTMMMMMMNNNNTTTT",
+"TTTMMMMMMNNNNNETTT",
+"TTMMMMMMMNNNNNEETT",
+"TMMMMMMNNNNNEEEEET",
+"MMMMMNNNNNEEEEEEEE",
+"MMMMNNNNNNEEEEEEEE"
+```
+
+**FLOWER** (5 linhas × 3 chars):
+```
+"TRT",
+"RPR",
+"TRT",
+"TNT",
+"MNN"
+```
+
+**ROCK** (4 linhas × 6 chars):
+```
+"TTGGTT",
+"TGGGGT",
+"GDDGGA",
+"DAAADA"
+```
+
+**SUN** (15 linhas × 15 chars):
+```
+"TTTTTTTSTTTTTTT",
+"TTTTTTTSTTTTTTT",
+"TTSTTTTSTTTTSTT",
+"TTTSTOOSSOOSTTT",
+"TTTTOOSSSSOOTTT",
+"TTTOSSSYYSSSOTT",
+"TTOSSYYYYYYSSOT",
+"SSOSYYYYYYYYOSS",
+"TTOSSYYYYYYSSOT",
+"TTTOSSSYYSSSOTT",
+"TTTTOOSSSSOOTTT",
+"TTTSTOOSSOOSTTT",
+"TTSTTTTSTTTTSTT",
+"TTTTTTTSTTTTTTT",
+"TTTTTTTSTTTTTTT"
+```
+
+**MOON** (16 linhas × 16 chars):
+```
+"TTTTTCCCCCCCTTTT",
+"TTTCCVVVVCCCCCCT",
+"TTCVVVVVVVVCCCCT",
+"TCCVVVVVCCCVVVCT",
+"TCCCVVVCCCCVVVCT",
+"TCCCCCCCCCCVVVCT",
+"CCCVCCCCCCCCCCCC",
+"CCVVVCCCCCCCCCCC",
+"CCVVVCCCCCVVVCCC",
+"CCCVCCCCCVVVVVCC",
+"TCCCCCCCCCVVVVCT",
+"TCCCCCCCCCCVVVCT",
+"TTCCCCCVVVCCCCTT",
+"TTTCCCCCVCCCCCTT",
+"TTTTTCCCCCCCTTTT",
+"TTTTTTTTTTTTTTTT"
+```
+
+**CLOUD** (7 linhas × 20 chars):
+```
+"TTTTTTTTYYYYTTTTTTTT",
+"TTTTTTYYYYYYYYTTTTTT",
+"TTTTYYYYYYYYYYYYTTTT",
+"TTYYYYYYYYYYYYYYYYTT",
+"YYYYYYYYYYYYYYYYYYYY",
+"YYYYYYYYYYYYYYYYYYYY",
+"TYYYYYYYYYYYYYYYYYYT"
+```
+
+---
+
+### 5. ELEMENTOS DO CENÁRIO
+
+**Grass blades** — array de 300 objetos gerados aleatoriamente:
+```js
+{ x: Math.random() * window.innerWidth * 2, height: Math.random()*15+5, width: Math.random()*4+2, isFlower: Math.random() > 0.95 }
+```
+
+**Fireflies** — array de 25 objetos:
+```js
+{ x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight*0.3 + window.innerHeight*0.6, phase: Math.random()*Math.PI*2, speedX: (Math.random()-0.5)*0.5, speedY: (Math.random()-0.5)*0.5 }
+```
+
+**Stars** — array de 150 objetos:
+```js
+{ x: Math.random(), y: Math.random(), speed: Math.random()*0.05, twinkle: Math.random() }
+```
+
+**Clouds** — array fixo de 4 objetos:
+```js
+{ x:10, y:15, speed:0.5, scale:6 },
+{ x:50, y:10, speed:0.3, scale:4 },
+{ x:80, y:25, speed:0.8, scale:5 },
+{ x:20, y:35, speed:0.4, scale:7 }
+```
+
+**Shooting stars** — array vazio `[]`, populado dinamicamente.
+
+**Raccoon state**:
+```js
+let raccoon = { bounceOffset: 0, flip: false, frame: 0 }
+```
+
+---
+
+### 6. FUNÇÃO `drawBlockyMountain(centerX, groundY, peakHeight, baseWidth, colorShadow, colorLight, hasSnow)`
+
+- `blockSize = 16`
+- `steps = Math.floor(peakHeight / blockSize)`
+- `stepWidth = (baseWidth / 2) / steps`
+- Loop `i` de 0 a steps:
+  - `currentY = groundY - (i * blockSize)`
+  - `currentHalfWidth = (baseWidth/2) - (i * stepWidth)`
+  - Se `hasSnow && i > steps * 0.75`: usa `'#dfe6e9'` (esquerda) e `'#ffffff'` (direita)
+  - Senão: usa `colorShadow` (esquerda) e `colorLight` (direita)
+  - Desenha dois `fillRect`: esquerdo de `centerX - currentHalfWidth` com largura `currentHalfWidth`, direito de `centerX` com largura `currentHalfWidth`, ambos com altura `blockSize` em `currentY - blockSize`
+
+---
+
+### 7. LOOP PRINCIPAL `loop()`
+
+Ordem de renderização:
+
+1. **Céu degradê**: `createLinearGradient(0,0,0,canvas.height*0.8)` com stops em 0 (`sky1`), 0.4 (`sky2`), 1.0 (`sky3`). `fillRect` cobrindo tudo.
+
+2. **Estrelas** (só `isNight`): para cada star, `twinkle += speed`, `opacity = (sin(twinkle)+1)/2`, `fillStyle = rgba(255,255,255,opacity)`, `fillRect` de 4×4 em `s.x * canvas.width, s.y * canvas.height * 0.7`.
+
+3. **Estrelas cadentes** (só `isNight`): chance `0.005` por frame de adicionar `{x: random*canvas.width, y:0, len: random*50+20, speed: random*5+10}`. Desenha linha de `(ss.x, ss.y)` até `(ss.x - ss.len, ss.y - ss.len)` com `strokeStyle rgba(255,255,255,0.8)`, `lineWidth 2`. Move `ss.x += speed`, `ss.y += speed`. Remove quando `ss.y > canvas.height`.
+
+4. **Sol** (h 6–17): `timePercent = ((h-6) + minutes/60) / 12`. `sunX = canvas.width*0.1 + canvas.width*0.8*timePercent`. `sunY = canvas.height*0.1 + sin(timePercent*PI)*-50`. `drawSprite(SUN, sunX, sunY, 8)`.
+
+5. **Lua** (noite): `nightH = h>=18 ? h-18 : h+6`. `timePercent = (nightH + minutes/60)/12`. `moonX = canvas.width*0.1 + canvas.width*0.8*timePercent`. `moonY = canvas.height*0.15`. `drawSprite(MOON, moonX, moonY, 8)`.
+
+6. **Nuvens** (só dia): para cada cloud, `c.x += c.speed`, se `c.x > 110` reseta para `-20`. `drawSprite(CLOUD, (c.x/100)*canvas.width, (c.y/100)*canvas.height, c.scale)`.
+
+7. **`const groundY = canvas.height * 0.75`**
+
+8. **Montanhas** (3 chamadas):
+   - `drawBlockyMountain(canvas.width*0.25, groundY, canvas.height*0.45, canvas.width*0.6, mountain, mountainLight, true)`
+   - `drawBlockyMountain(canvas.width*0.75, groundY, canvas.height*0.35, canvas.width*0.5, mountain, mountainLight, true)`
+   - `drawBlockyMountain(canvas.width*0.5,  groundY, canvas.height*0.25, canvas.width*0.4, mountain, mountainLight, false)`
+
+9. **Gramado base**: `fillStyle = grass2`, `fillRect(0, groundY, canvas.width, canvas.height - groundY)`.
+
+10. **Grass blades**: `fillStyle = grass1`, para cada blade com `b.x < canvas.width`: `fillRect(b.x, groundY - b.height, b.width, b.height)`. Depois `fillRect(0, groundY, canvas.width, canvas.height - groundY)` novamente para cobrir a base.
+
+11. **Pedras**: `drawSprite(ROCK, canvas.width*0.3, groundY-15, 4)` e `drawSprite(ROCK, canvas.width*0.65, groundY-10, 3)`.
+
+12. **Arbustos**: 
+    - `drawSprite(BUSH, canvas.width*0.2, groundY-(BUSH.length*6)+10, 6)`
+    - `drawSprite(BUSH, canvas.width*0.85, groundY-(BUSH.length*5)+5, 5)`
+    - `drawSprite(BUSH, canvas.width*0.1, groundY-(BUSH.length*4)+15, 4)`
+
+13. **Flores**: para cada blade com `isFlower && b.x < canvas.width`: `drawSprite(FLOWER, b.x, groundY + b.height*2, 3)`.
+
+14. **Árvores**:
+    - `drawSprite(TREE, canvas.width*0.15, groundY-(TREE.length*8)+15, 8)`
+    - `drawSprite(TREE, canvas.width*0.80, groundY-(TREE.length*8)+15, 8)`
+
+15. **Vagalumes** (só `isNight`): para cada firefly, move por `speedX/speedY`, rebate nas bordas e em `groundY-50`. `phase += 0.05`, `glow = (sin(phase)+1)/2`. Desenha círculo de raio 3 com `rgba(241,196,15,glow)` e halo de raio 8 com `rgba(241,196,15,glow*0.3)`.
+
+16. **Guaxinim** (animação squash & stretch):
+    - `raccoon.frame++`
+    - `spriteWidth = 260`, `spriteHeight = 260`
+    - `rx = (canvas.width/2) - (spriteWidth/2)`
+    - A cada `frame % 35 === 0`: `flip = !flip`, alterna `bounceOffset` entre `0` e `-25`
+    - Se `raccoonImg.complete`:
+      - **Sombra**: `fillStyle = rgba(0,0,0,0.3)`, ellipse em `(rx + spriteWidth/2, groundY)`, raio X = `bounceOffset===0 ? 60 : 40`, raio Y = 8
+      - `ctx.save()`
+      - `ctx.translate(rx + spriteWidth/2, groundY + bounceOffset)`
+      - Se `bounceOffset !== 0`: `ctx.scale(0.95, 1.05)` (no ar: magro e comprido)
+      - Se `bounceOffset === 0`: `ctx.scale(1.05, 0.95)` (no chão: gordinho e achatado)
+      - Se `flip`: `ctx.scale(-1, 1)`
+      - `ctx.drawImage(raccoonImg, -spriteWidth/2, -spriteHeight+110, spriteWidth, spriteHeight)`
+      - `ctx.restore()`
+
+17. `requestAnimationFrame(loop)`
+
+---
+
+### NOTAS IMPORTANTES
+
+- O arquivo `guaxinim_inteiro_transp.png` deve estar na mesma pasta. É uma imagem PNG 1024×1024 com fundo transparente de um guaxinim em pé. O offset `+110` no `drawImage` compensa o espaço vazio na parte inferior da imagem para que as patas fiquem alinhadas com o `groundY`.
+- O canvas usa `alpha: false` (fundo opaco), então o fundo preto do body não aparece — o céu cobre tudo.
+- Toda a lógica de horário usa `new Date().getHours()` e `new Date().getMinutes()` em tempo real.
+- Não há dependências externas. Tudo é canvas 2D puro.
+
+Make it also change overtime with wheater effects accordingly to the city setted up on the code. in this case will be são paulo. 
