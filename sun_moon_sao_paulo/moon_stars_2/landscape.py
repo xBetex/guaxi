@@ -139,51 +139,103 @@ def draw_landscape(screen, w, h, season, hour, day, weather=None):
 
     base_scale = min(w, h) / 800
 
-    ground_colors = {
-        "summer": (56, 173, 169),
-        "autumn": (183, 21, 64),
-        "winter": (178, 190, 195),
-        "spring": (0, 184, 148),
-    }
-    gc = ground_colors.get(season, (40, 100, 50))
-    # weather-responsive ground
-    if weather:
-        if getattr(weather, '_is_winter', False) and weather.rain_intensity > 0.01:
-            gc = (180, 195, 210)  # snow cover
-        elif weather.rain_intensity > 0.1:
-            gc = tuple(max(0, int(c * 0.7)) for c in gc)  # wet ground (darker)
-    ground_surf = pygame.Surface((w, h - ground_y))
-    for gy in range(h - ground_y):
-        t = gy / (h - ground_y)
-        r = int(gc[0] * (1 - t * 0.3))
-        g = int(gc[1] * (1 - t * 0.25))
-        b = int(gc[2] * (1 - t * 0.2))
-        pygame.draw.line(ground_surf, (r, g, b), (0, gy), (w, gy))
-    screen.blit(ground_surf, (0, ground_y))
+    # Draw Sand Beach
+    sand_c_top = (235, 213, 179)
+    sand_c_bot = (194, 166, 126)
+    
+    if weather and weather.rain_intensity > 0.1:
+        sand_c_top = tuple(max(0, int(c * 0.75)) for c in sand_c_top)
+        sand_c_bot = tuple(max(0, int(c * 0.75)) for c in sand_c_bot)
 
-    path_x = w * 0.25
-    path_w = int(w * 0.05)
-    for py in range(ground_y, ground_y + int(h * 0.08)):
-        t = (py - ground_y) / (h * 0.08)
-        pw = int(path_w * (0.5 + t * 0.5))
-        px = int(path_x + math.sin(t * 2) * 20)
-        col = (100 + int(t * 40), 75 + int(t * 30), 50)
-        pygame.draw.ellipse(screen, col, (px - pw // 2, py, pw, 2))
+    beach_h = h - ground_y
+    if beach_h > 0:
+        ground_surf = pygame.Surface((w, beach_h))
+        for gy in range(beach_h):
+            t = gy / beach_h
+            r = int(sand_c_top[0] + (sand_c_bot[0] - sand_c_top[0]) * t)
+            g = int(sand_c_top[1] + (sand_c_bot[1] - sand_c_top[1]) * t)
+            b = int(sand_c_top[2] + (sand_c_bot[2] - sand_c_top[2]) * t)
+            pygame.draw.line(ground_surf, (r, g, b), (0, gy), (w, gy))
+            
+        # Draw green strip for trees (promenade grass)
+        grass_h = max(5, int(beach_h * 0.04))
+        pygame.draw.rect(ground_surf, (76, 153, 76), (0, 0, w, grass_h))
+        # Curb border
+        pygame.draw.line(ground_surf, (170, 160, 140), (0, grass_h), (w, grass_h), 2)
+            
+        t_sec = pygame.time.get_ticks() / 1000.0
+        
+        base_shore_y = int(beach_h * 0.65) 
+        surge_amp = int(beach_h * 0.20)
+        max_reach_y = base_shore_y - surge_amp
 
-    lake_y = ground_y + int(h * 0.06)
-    lake_h = int(h * 0.06)
-    if season != "winter":
-        lake_surf = pygame.Surface((w, lake_h), pygame.SRCALPHA)
-        for ly in range(lake_h):
-            t = ly / lake_h
-            sky_r, sky_g, sky_b = get_sky_colors(sun_elevation(hour))[1]
-            alpha = int(60 + 60 * (1 - t))
-            col = (sky_r // 2, sky_g // 2, sky_b // 2, alpha)
-            lake_surf.set_at((0, ly), col)
-            for lx in range(0, w, 2):
-                wv = math.sin(lx * 0.02 + ly * 0.1 + hour * 3) * 1.5
-                lake_surf.set_at((lx, ly), (col[0] + int(wv), col[1] + int(wv), col[2] + int(wv), alpha))
-        screen.blit(lake_surf, (0, lake_y))
+        # Slower wave: 1 cycle every 10 seconds
+        cycle_len = 10.0
+        cycle_start = math.floor(t_sec / cycle_len) * cycle_len
+        t_peak = cycle_start + 2.0  # Peak is at phase 0.2 (2 seconds in)
+        
+        phase = (t_sec / cycle_len) % 1.0
+        if phase < 0.20:
+            surge = math.sin((phase / 0.20) * (math.pi / 2)) # Fast surge
+            t_wet = t_sec
+            current_wet_y = base_shore_y - surge * surge_amp
+            wet_alpha = 45
+        else:
+            surge = 1.0 - math.pow((phase - 0.20) / 0.80, 1.5) # Slow recede
+            t_wet = t_peak
+            current_wet_y = max_reach_y
+            wet_alpha = int(45 * surge)
+
+        # Wet sand layer (breathes by leaving a footprint that dries up)
+        wet_sand_surf = pygame.Surface((w, beach_h), pygame.SRCALPHA)
+        wet_points = []
+        for wx in range(0, w + 20, 20):
+            wavy = math.sin(wx * 0.012 + t_wet * 0.8) * 8 + math.sin(wx * 0.025 - t_wet * 1.2) * 5
+            wet_points.append((wx, current_wet_y + wavy))
+        wet_points.extend([(w + 20, beach_h), (0, beach_h)])
+        pygame.draw.polygon(wet_sand_surf, (0, 0, 0, wet_alpha), wet_points)
+        ground_surf.blit(wet_sand_surf, (0, 0))
+
+        screen.blit(ground_surf, (0, ground_y))
+
+        # Draw Ocean Wave
+        water_surf = pygame.Surface((w, beach_h), pygame.SRCALPHA)
+        
+        sky_r, sky_g, sky_b = get_sky_colors(sun_elevation(hour))[1]
+        base_r = max(0, min(255, int(sky_r * 0.2 + 20)))
+        base_g = max(0, min(255, int(sky_g * 0.3 + 90)))
+        base_b = max(0, min(255, int(sky_b * 0.4 + 150)))
+
+        main_shore_y = base_shore_y - surge * surge_amp
+        
+        main_pts = []
+        for wx in range(0, w + 20, 20):
+            wavy = math.sin(wx * 0.012 + t_sec * 0.8) * 8 + math.sin(wx * 0.025 - t_sec * 1.2) * 5
+            main_pts.append((wx, main_shore_y + wavy))
+        main_pts.extend([(w + 20, beach_h), (0, beach_h)])
+        
+        pygame.draw.polygon(water_surf, (base_r, base_g, base_b, 230), main_pts)
+        
+        # Random foam drifting on the water
+        for i in range(150):
+            fx = (math.sin(i * 12.34) * 5000 + t_sec * 12) % w
+            fy = (math.sin(i * 45.67) * 5000 + t_sec * 6) % beach_h
+            
+            wavy_offset = math.sin(fx * 0.012 + t_sec * 0.8) * 8 + math.sin(fx * 0.025 - t_sec * 1.2) * 5
+            water_edge_y = main_shore_y + wavy_offset
+            
+            if fy > water_edge_y + 8:
+                f_alpha = int((math.sin(t_sec * 1.5 + i) * 0.5 + 0.5) * 120)
+                if f_alpha > 10:
+                    f_size = 1 + int((math.sin(i * 78.9) * 0.5 + 0.5) * 4)
+                    pygame.draw.ellipse(water_surf, (255, 255, 255, f_alpha), (int(fx), int(fy), f_size * 4, f_size))
+        
+        foam_pts = main_pts[:-2]
+        if len(foam_pts) >= 2:
+            foam_thick = int(2 + surge * 6)
+            pygame.draw.lines(water_surf, (255, 255, 255, int(150 + 105*surge)), False, foam_pts, foam_thick)
+
+        screen.blit(water_surf, (0, ground_y))
 
     draw_trees(screen, w, h, ground_y, season, day,
                base_scale, weather)

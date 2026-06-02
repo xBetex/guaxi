@@ -45,10 +45,10 @@ class Flock:
             b["flap"] += dt * 12 * speed
             b["x"] += b["vx"] * dt * speed
             b["y"] += math.sin(b["phase"]) * 2 + b["vy"] * dt * speed
-            if b["x"] < -100 or b["x"] > w + 100 or b["y"] < -80 or b["y"] > h * 0.5:
+            if b["x"] < -100 or b["x"] > w + 100 or b["y"] < -80 or b["y"] > h + 50:
                 self.birds.remove(b)
 
-        if not self.birds or self._timer > 15:
+        if not self.birds:
             self.active = False
             self.birds.clear()
 

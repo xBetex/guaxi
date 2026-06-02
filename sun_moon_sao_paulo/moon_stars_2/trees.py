@@ -22,10 +22,10 @@ def _get_tree_sheet():
 # ─────────────────────────────────────────────────────────────────────────────
 # Artistic Controls (Tweak these to change forest look!)
 # ─────────────────────────────────────────────────────────────────────────────
-TREE_SIZE_MULT = 0.65       # Global scale for all trees (lower this to make them smaller)
-FG_SIZE_MAX = 1.4           # Max scale for massive foreground trees (was 3.8)
-FG_CLUSTER_MULT = 1.3       # Multiplier for the amount of foreground trees
-BG_DENSITY_MULT = 1.2       # Multiplier for background forest density
+TREE_SIZE_MULT = 1.0        # Global scale for all trees (lower this to make them smaller)
+FG_SIZE_MAX = 1.5           # Max scale for massive foreground trees
+FG_CLUSTER_MULT = 0.20      # Multiplier for the amount of foreground trees
+BG_DENSITY_MULT = 0.40      # Multiplier for background forest density
 
 
 
@@ -40,28 +40,28 @@ def draw_forest_treeline(screen, w, h, ground_y, season, day, base_scale, weathe
     trees = []
 
     bands = [
-        (0,  0.005, 0.60, (140, 220)),
-        (1,  0.020, 0.85, (120, 180)),
+        (0,  0.005, 0.60, 180),
+        (1,  0.020, 0.85, 150),
     ]
 
-    for band_idx, (seed_off, y_frac, sz_frac, step_rng) in enumerate(bands):
-        rng = random.Random(band_idx + seed_off)
+    for band_idx, (seed_off, y_frac, sz_frac, spacing_base) in enumerate(bands):
         band_y_base = ground_y + int(h * y_frac)
         band_fog = _DISTANCE_FOG[band_idx]
+        spacing = int(spacing_base / BG_DENSITY_MULT)
 
-        x = -rng.randint(0, 20)
-        while x < w + 20:
-            tx = x + rng.randint(-4, 4)
+        x = (spacing // 2) * band_idx
+        while x < w + 40:
+            tx = x
             curve = math.sin(tx * 0.01 + band_idx) * 15
             band_y = int(band_y_base + curve)
             
-            fh = 0.55 + rng.random() * 0.45
+            fh = 0.75
             sz = int(120 * base_scale * sz_frac * fh * TREE_SIZE_MULT)
             if sz >= 10:
                 anchor_y = band_y
-                variant = rng.randint(0, 3)
+                variant = (x // spacing) % 2
                 trees.append((tx, anchor_y, sz, variant, band_fog))
-            x += rng.randint(int(step_rng[0] / BG_DENSITY_MULT), int(step_rng[1] / BG_DENSITY_MULT))
+            x += spacing
 
     if trees:
         ts = _get_tree_sheet()
@@ -77,38 +77,29 @@ def draw_forest_treeline(screen, w, h, ground_y, season, day, base_scale, weathe
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _generate_foreground_positions(w, h, day, base_scale):
-    rng = random.Random(0xA5F3)
-
     trees = []
 
-    clusters = [
-        (0.18, 3),
-        (0.52, 4),
-        (0.82, 2),
-    ]
+    # ground_y is around 0.78. Put them right at the edge of the beach
+    depth = 0.785
+    num_trees = 6
+    
+    # Symmetrically spread them across the screen width
+    spacing = w / max(1, num_trees - 1)
+    
+    for i in range(num_trees):
+        x = i * spacing
+        
+        # Slight organic curve so they aren't perfectly flat
+        curve = math.sin((x / w) * math.pi) * 4
+        anchor_y = int(h * depth + curve)
 
-    for cluster_x, amount in clusters:
-        amount = max(1, int(amount * FG_CLUSTER_MULT))
-        for _ in range(amount):
-            px = cluster_x + rng.uniform(-0.12, 0.12)
-            px = max(0.02, min(0.98, px))
-
-            depth = rng.uniform(0.80, 1.05)
-            curve = math.sin(px * math.pi * 2.0) * 30
-            anchor_y = int(h * depth + curve)
-
-            sz = int(120 * base_scale * rng.uniform(1.0, FG_SIZE_MAX) * depth * TREE_SIZE_MULT)
-            tx = int(w * px)
-            
-            if depth < 0.88:
-                depth_z = 0
-            elif depth < 0.96:
-                depth_z = 1
-            else:
-                depth_z = 2
-
-            variant = rng.randint(0, 3)
-            trees.append((depth_z, tx, anchor_y, sz, variant))
+        # Scale down the size so they aren't bigger than buildings
+        sz = int(80 * base_scale * 1.5 * depth * TREE_SIZE_MULT)
+        tx = int(x)
+        
+        depth_z = 0
+        variant = i % 4
+        trees.append((depth_z, tx, anchor_y, sz, variant))
 
     trees.sort(key=lambda t: (t[0], t[3]))
     return trees
@@ -136,7 +127,7 @@ def draw_foreground_trees(screen, w, h, ground_y, season, day, base_scale, weath
 # ─────────────────────────────────────────────────────────────────────────────
 
 def draw_trees(screen, w, h, ground_y, season, day, base_scale, weather):
-    draw_forest_treeline(screen, w, h, ground_y, season, day, base_scale, weather)
+    # draw_forest_treeline(screen, w, h, ground_y, season, day, base_scale, weather)
     
     t = pygame.time.get_ticks() / 1000.0
     for i in range(2):
