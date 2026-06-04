@@ -202,7 +202,7 @@ function loop() {
   const seasonTrees = treeImgs[season];
   if (seasonTrees && seasonTrees.small.complete && seasonTrees.small.naturalWidth) {
     const si = seasonTrees.small;
-    const dsw = Math.min(canvas.width * 0.12, 260);
+    const dsw = Math.min(canvas.width * 0.15, 320);
     const ss = dsw / si.naturalWidth;
     const sW = si.naturalWidth * ss;
     const sH = si.naturalHeight * ss;
@@ -214,7 +214,7 @@ function loop() {
     const shW = treesSheet.naturalWidth, shH = treesSheet.naturalHeight;
     const tW = shW / 4, tH = shH / 2;
     const col = { winter: 0, spring: 1, summer: 2, autumn: 3 }[season] ?? 1;
-    const dsw = Math.min(canvas.width * 0.12, 260);
+    const dsw = Math.min(canvas.width * 0.15, 320);
     const ss = dsw / tW;
     const sW = tW * ss, sH = tH * ss;
     const botS = getBottomYFromRegion(treesSheet, col * tW, tH, tW, tH, _bottomCacheSheet, `${col}_1`);
@@ -238,7 +238,7 @@ function loop() {
     const ci = useIn ? seasonTrees.centerIn : ciBase;
     if (ci) {
       const layoutRef = ciBase || ci;
-      const dw = Math.min(canvas.width * 0.28, 520);
+      const dw = Math.min(canvas.width * 0.33, 600);
       const sc = dw / layoutRef.naturalWidth;
       centerTreeImgW = layoutRef.naturalWidth * sc;
       centerTreeImgH = layoutRef.naturalHeight * sc;
@@ -256,7 +256,7 @@ function loop() {
       const tW = shW / 4, tH = shH / 2;
       const col = { winter: 0, spring: 1, summer: 2, autumn: 3 }[season] ?? 1;
       const row = shouldHide ? 0 : 1;
-      const dw = Math.min(canvas.width * 0.28, 520);
+      const dw = Math.min(canvas.width * 0.33, 600);
       const sc = dw / tW;
       centerTreeImgW = tW * sc;
       centerTreeImgH = tH * sc;
@@ -300,20 +300,55 @@ function loop() {
       const bfSc = 80 / bonfireImg.naturalHeight;
       const bfW = bonfireImg.naturalWidth * bfSc;
       const bfH = bonfireImg.naturalHeight * bfSc;
-      ctx.save();
-      ctx.globalAlpha = (Math.sin(Date.now() / 420) + 1) / 8 + 0.1;
-      ctx.fillStyle = "#e67e22";
-      ctx.beginPath();
-      ctx.arc(bfX, groundY - 20, 80, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
       ctx.drawImage(bonfireImg, bfX - bfW / 2, groundY - bfH + bonfireYOff, bfW, bfH);
+      // Draw animated fire effect
+      const fireTime = Date.now() * 0.001;
+      const flameCount = 4;
+      for (let i = 0; i < flameCount; i++) {
+        const angle = (i / flameCount) * Math.PI * 2 + fireTime * 2;
+        const distance = 45 + Math.sin(fireTime * 2 + i) * 15;
+        const flameCx = bfX + Math.cos(angle) * distance;
+        const flameCy = groundY - 30 + Math.sin(fireTime * 3 + i * 0.5) * 20;
+        const flameSize = 35 + Math.sin(fireTime + i) * 10;
+        const alpha = 0.6 + Math.sin(fireTime * 1.5 + i) * 0.3;
+        ctx.fillStyle = `rgba(255, 140, 0, ${alpha * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(flameCx, flameCy, flameSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(255, 200, 0, ${alpha * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(flameCx, flameCy - 15, flameSize * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = `rgba(255, 100, 0, 0.3)`;
+      ctx.beginPath();
+      ctx.arc(bfX, groundY - 20, 70, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       const bfSprite = Math.floor(Date.now() / 320) % 2 === 0 ? BONFIRE_1 : BONFIRE_2;
       drawSprite(bfSprite, bfX, groundY - BONFIRE_1.length * 6 + 15 + bonfireYOff, 6, season);
-      ctx.fillStyle = `rgba(230,126,34,${(Math.sin(Date.now() / 420) + 1) / 8 + 0.1})`;
+      // Draw animated fire effect for sprite bonfire
+      const fireTime = Date.now() * 0.001;
+      const flameCount = 4;
+      for (let i = 0; i < flameCount; i++) {
+        const angle = (i / flameCount) * Math.PI * 2 + fireTime * 2;
+        const distance = 45 + Math.sin(fireTime * 2 + i) * 15;
+        const flameCx = bfX + 33 + Math.cos(angle) * distance;
+        const flameCy = groundY - 30 + Math.sin(fireTime * 3 + i * 0.5) * 20;
+        const flameSize = 35 + Math.sin(fireTime + i) * 10;
+        const alpha = 0.6 + Math.sin(fireTime * 1.5 + i) * 0.3;
+        ctx.fillStyle = `rgba(255, 140, 0, ${alpha * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(flameCx, flameCy, flameSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(255, 200, 0, ${alpha * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(flameCx, flameCy - 15, flameSize * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = `rgba(255, 100, 0, 0.3)`;
       ctx.beginPath();
-      ctx.arc(bfX + 33, groundY - 10, 90, 0, Math.PI * 2);
+      ctx.arc(bfX + 33, groundY - 10, 70, 0, Math.PI * 2);
       ctx.fill();
     }
     if (weather === "clear" && (season === "summer" || season === "spring")) {

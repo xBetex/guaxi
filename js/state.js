@@ -2,7 +2,7 @@
 // js/state.js — Global mutable state
 // ============================================================
 
-let currentCity = "São Paulo";
+let currentCity = "Julio de Castilhos";
 let isAutoTime = true;
 let manualTimeVal = 12;
 
