@@ -41,33 +41,39 @@ def _timezone_offset(data: dict) -> float:
         return 0
 
 def _guess_hemisphere(data: dict, current_southern: bool) -> bool:
-    """Guess hemisphere from timezone offset, temperature, and month."""
+    """Guess hemisphere from timezone offset and temperature.
+
+    Uses conservative thresholds to avoid misidentifying southern cities
+    (e.g. São Paulo in a warm winter day) as northern hemisphere.
+    Only flips hemisphere on extreme, unambiguous temperatures.
+    """
     try:
         off = _timezone_offset(data)
         temp = data.get("temp_C", 20)
         month = datetime.now().month
 
-        # Positive offset → Europe/Asia/Africa → mostly northern
+        # Positive UTC offset → Europe/Asia/Africa → northern hemisphere
         if off > 0:
             return False
 
-        # Negative offset → could be Americas
-        # Use temperature + month to distinguish north vs south
-        # June-August: hot = northern summer, cold = southern winter
+        # Negative UTC offset → Americas (mostly).
+        # Only override if temperature is *extremely* unambiguous:
+        #   June–Aug with scorching heat (>30°C) → must be northern summer
+        #   June–Aug with freezing cold (<3°C)   → could be southern winter too,
+        #                                           but that's also plausible in
+        #                                           high-altitude S. America — keep current
+        #   Dec–Feb with very hot (>30°C)        → southern summer
+        #   Dec–Feb with genuinely freezing (<3°C) → northern winter
         if 6 <= month <= 8:
-            if temp > 22: return False  # hot → northern summer
-            if temp < 12: return True   # cold → southern winter
-        # December-February: hot = southern summer, cold = northern winter
+            if temp > 30: return False   # Unambiguously northern summer
+            if temp < 3:  return False   # Deep freeze → probably Canada/US north
         if month >= 12 or month <= 2:
-            if temp > 22: return True   # hot → southern summer
-            if temp < 12: return False  # cold → northern winter
-        # Shoulder months (Mar-May, Sep-Nov): use temp extremes
-        if temp > 25: return True       # very warm → likely southern
-        if temp < 10: return False      # very cold → likely northern
+            if temp > 30: return True    # Unambiguously southern summer
+            if temp < 3:  return False   # Very cold → northern winter
 
-        # Fallback: keep current but strongly prefer southern for negative offsets
-        # (most landmass at negative offsets is in South America)
-        return True
+        # Not enough signal — preserve whatever the user/default currently has.
+        # This prevents mild subtropical winters (~15–22°C) from being misread.
+        return current_southern
     except Exception:
         return current_southern
 
@@ -561,7 +567,10 @@ try:
         date_str = sim_date.strftime("%b %d, %Y")
         season_ends = [80, 172, 264, 355]
         next_season_day = next((b for b in season_ends if day < b), 365)
-        next_season_name = {80: "autumn", 172: "winter", 264: "spring", 355: "summer", 365: "summer"}[next_season_day]
+        if southern:
+            next_season_name = {80: "autumn", 172: "winter", 264: "spring", 355: "summer", 365: "summer"}[next_season_day]
+        else:
+            next_season_name = {80: "spring", 172: "summer", 264: "autumn", 355: "winter", 365: "winter"}[next_season_day]
         days_to_season = next_season_day - day
         cycle = 29.53058867
         days_to_full = ((0.5 - moon_phase) % 1.0) * cycle
